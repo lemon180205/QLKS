@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Khám phá phòng nghỉ</title>
+</head>
+<body>
+    <header>
+        <h1>Khách sạn và Homestay</h1>
+        <p>Khám phá không gian nghỉ dưỡng dành cho bạn.</p>
+    </header>
+
+    <main>
+        <h2>Các loại phòng</h2>
+
+        {% for room_type in room_types %}
+            <article>
+                <h3>{{ room_type.name }}</h3>
+                <p>Tối đa {{ room_type.capacity }} khách</p>
+                <p>Giá mỗi đêm: {{ room_type.price_per_night }} VNĐ</p>
+                <p>{{ room_type.description|linebreaksbr }}</p>
+            </article>
+            <hr>
+        {% empty %}
+            <p>Chưa có thông tin loại phòng.</p>
+        {% endfor %}
+    </main>
+</body>
+</html>
