@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}An Nhiên Hotel{% endblock %}</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            color: #24332e;
+            background: #f7f8f5;
+            line-height: 1.6;
+        }
+
+        a {
+            color: inherit;
+        }
+
+        .container {
+            width: min(1120px, 92%);
+            margin: auto;
+        }
+
+        .header {
+            background: white;
+            border-bottom: 1px solid #e2e7e2;
+        }
+
+        .header-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+            padding: 20px 0;
+        }
+
+        .brand {
+            color: #245b48;
+            font-size: 24px;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        .nav-link {
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .nav-link:hover {
+            text-decoration: underline;
+        }
+
+        .hero {
+            padding: 64px 0;
+            background: #e8f0e9;
+        }
+
+        .hero h1 {
+            margin: 8px 0 16px;
+            font-size: clamp(30px, 5vw, 48px);
+            line-height: 1.2;
+        }
+
+        .hero p {
+            max-width: 600px;
+            color: #53665c;
+        }
+
+        .eyebrow {
+            color: #245b48;
+            font-size: 13px;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+
+        .section {
+            padding: 48px 0;
+        }
+
+        .section h2 {
+            margin-top: 0;
+        }
+
+        .room-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+            gap: 24px;
+        }
+
+        .room-card {
+            overflow: hidden;
+            background: white;
+            border: 1px solid #e2e7e2;
+            border-radius: 16px;
+        }
+
+        .room-placeholder {
+            display: grid;
+            place-items: center;
+            height: 180px;
+            background: #dce8df;
+            color: #355d48;
+        }
+
+        .room-content {
+            padding: 24px;
+        }
+
+        .room-content h3 {
+            margin: 0 0 8px;
+            font-size: 23px;
+        }
+
+        .muted {
+            color: #63736b;
+        }
+
+        .price {
+            margin-bottom: 0;
+            color: #245b48;
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        .price span {
+            color: #63736b;
+            font-size: 14px;
+            font-weight: normal;
+        }
+
+        .footer {
+            padding: 24px 0;
+            border-top: 1px solid #e2e7e2;
+            color: #63736b;
+        }
+
+        .room-image {
+    display: block;
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+}
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container header-inner">
+            <a class="brand" href="{% url 'website:room_list' %}">
+                An Nhiên Hotel
+            </a>
+
+            <nav aria-label="Điều hướng chính">
+                <a class="nav-link" href="{% url 'website:room_list' %}">
+                    Khám phá phòng
+                </a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            © {% now "Y" %} An Nhiên Hotel
+        </div>
+    </footer>
+</body>
+</html>

@@ -22,6 +22,11 @@ class RoomType(models.Model):
         "Mô tả",
         blank=True,
     )
+    image = models.ImageField(
+        "Ảnh đại diện",
+        upload_to="room_types/",
+        blank=True,
+    )
 
     class Meta:
         verbose_name = "Loại phòng"

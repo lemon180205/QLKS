@@ -1,30 +1,63 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Khám phá phòng nghỉ</title>
-</head>
-<body>
-    <header>
-        <h1>Khách sạn và Homestay</h1>
-        <p>Khám phá không gian nghỉ dưỡng dành cho bạn.</p>
-    </header>
+{% extends "website/base.html" %}
 
-    <main>
-        <h2>Các loại phòng</h2>
+{% block title %}Khám phá phòng nghỉ | An Nhiên Hotel{% endblock %}
 
-        {% for room_type in room_types %}
-            <article>
-                <h3>{{ room_type.name }}</h3>
-                <p>Tối đa {{ room_type.capacity }} khách</p>
-                <p>Giá mỗi đêm: {{ room_type.price_per_night }} VNĐ</p>
-                <p>{{ room_type.description|linebreaksbr }}</p>
-            </article>
-            <hr>
-        {% empty %}
-            <p>Chưa có thông tin loại phòng.</p>
-        {% endfor %}
-    </main>
-</body>
-</html>
+{% block content %}
+    <section class="hero">
+        <div class="container">
+            <div class="eyebrow">CHÀO MỪNG BẠN ĐẾN VỚI AN NHIÊN</div>
+            <h1>Một nơi dừng chân,<br>một khoảng trời bình yên.</h1>
+            <p>
+                Khám phá các loại phòng và lựa chọn không gian
+                phù hợp cho kỳ nghỉ của bạn.
+            </p>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container">
+            <h2>Không gian nghỉ ngơi</h2>
+            <p class="muted">
+                Tham khảo loại phòng và giá mỗi đêm.
+                Giá hiển thị chưa xác nhận tình trạng phòng theo ngày.
+            </p>
+
+            <div class="room-grid">
+                {% for room_type in room_types %}
+                    <article class="room-card">
+                        {% if room_type.image %}
+    <img
+        class="room-image"
+        src="{{ room_type.image.url }}"
+        alt="Không gian {{ room_type.name }}"
+    >
+{% else %}
+    <div class="room-placeholder">
+        Ảnh phòng đang được cập nhật
+    </div>
+{% endif %}
+
+                        <div class="room-content">
+                            <h3>{{ room_type.name }}</h3>
+
+                            <p class="muted">
+                                Tối đa {{ room_type.capacity }} khách
+                            </p>
+
+                            {% if room_type.description %}
+                                <p>{{ room_type.description|linebreaksbr }}</p>
+                            {% endif %}
+
+                            <p class="price">
+                                {{ room_type.price_per_night|floatformat:"0g" }} ₫
+                                <span>/ đêm</span>
+                            </p>
+                        </div>
+                    </article>
+                {% empty %}
+                    <p>Thông tin phòng sẽ sớm được cập nhật.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+{% endblock %}
