@@ -1,0 +1,43 @@
+{% extends "website/base.html" %}
+
+{% block title %}{{ room_type.name }} | An Nhiên Hotel{% endblock %}
+
+{% block content %}
+<section class="section">
+    <div class="container">
+        <a href="{% url 'website:room_list' %}">
+            ← Quay lại danh sách phòng
+        </a>
+
+        <h1>{{ room_type.name }}</h1>
+
+        {% if room_type.image %}
+            <img
+                class="detail-image"
+                src="{{ room_type.image.url }}"
+                alt="Không gian {{ room_type.name }}"
+            >
+        {% else %}
+            <div class="room-placeholder">
+                Ảnh phòng đang được cập nhật
+            </div>
+        {% endif %}
+
+        <h2>Thông tin loại phòng</h2>
+        <p>Tối đa {{ room_type.capacity }} khách</p>
+
+        <p class="price">
+            {{ room_type.price_per_night|floatformat:"0g" }} ₫
+            <span>/ đêm</span>
+        </p>
+
+        <h2>Mô tả</h2>
+        {{ room_type.description|default:"Thông tin đang được cập nhật."|linebreaks }}
+
+        <p class="muted">
+            Tình trạng phòng và tổng tiền sẽ được kiểm tra
+            theo ngày nhận và ngày trả phòng.
+        </p>
+    </div>
+</section>
+{% endblock %}

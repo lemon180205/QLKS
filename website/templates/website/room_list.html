@@ -48,10 +48,12 @@
                                 <p>{{ room_type.description|linebreaksbr }}</p>
                             {% endif %}
 
-                            <p class="price">
-                                {{ room_type.price_per_night|floatformat:"0g" }} ₫
-                                <span>/ đêm</span>
-                            </p>
+                            <a
+                            class="button"
+                            href="{% url 'website:room_detail' room_type.pk %}"
+                            >
+                            Xem chi tiết
+                            </a>
                         </div>
                     </article>
                 {% empty %}
