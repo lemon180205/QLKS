@@ -3,3 +3,5 @@ Django==5.2.19
 pillow==13.0.0
 sqlparse==0.6.1
 tzdata==2026.6
+
+python -m pip install "psycopg[binary]>=3.1.8,<4"
