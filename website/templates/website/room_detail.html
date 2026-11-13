@@ -10,6 +10,10 @@
         </a>
 
         <h1>{{ room_type.name }}</h1>
+        <p>
+            {% if room_type.tier == "vip" %}Phòng VIP{% else %}Phòng thường{% endif %}
+            · Tối đa {{ room_type.capacity }} khách
+        </p>
 
         {% if room_type.image %}
             <img
@@ -38,6 +42,13 @@
             Tình trạng phòng và tổng tiền sẽ được kiểm tra
             theo ngày nhận và ngày trả phòng.
         </p>
+
+        <a
+            class="button"
+            href="{% url 'website:booking_request' room_type.pk %}"
+        >
+            Gửi yêu cầu đặt phòng
+        </a>
     </div>
 </section>
 {% endblock %}

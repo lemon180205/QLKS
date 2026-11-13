@@ -1,0 +1,211 @@
+{% extends "admin/base_site.html" %}
+{% load i18n room_dashboard %}
+
+{% block title %}Bảng điều khiển | {{ site_title }}{% endblock %}
+{% block bodyclass %}{{ block.super }} hotel-dashboard-page{% endblock %}
+{% block nav-breadcrumbs %}{% endblock %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <style>
+        .hotel-dashboard {
+            max-width: 1280px;
+        }
+
+        .dashboard-heading {
+            margin: 0 0 6px;
+            color: var(--body-fg);
+            font-size: 26px;
+        }
+
+        .dashboard-description {
+            margin: 0 0 24px;
+            color: var(--body-quiet-color);
+        }
+
+        .dashboard-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 16px;
+            margin: 22px 0 30px;
+        }
+
+        .dashboard-card,
+        .dashboard-panel {
+            border: 1px solid var(--hairline-color);
+            border-radius: 10px;
+            background: var(--body-bg);
+            box-shadow: 0 2px 8px rgb(0 0 0 / 4%);
+        }
+
+        .dashboard-card {
+            padding: 20px;
+        }
+
+        .dashboard-card-label {
+            margin: 0;
+            color: var(--body-quiet-color);
+            font-size: 14px;
+        }
+
+        .dashboard-card-value {
+            margin: 8px 0 0;
+            color: var(--primary);
+            font-size: 30px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .dashboard-panels {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 18px;
+        }
+
+        .dashboard-panel {
+            padding: 20px;
+        }
+
+        .dashboard-panel h2 {
+            margin: 0 0 18px;
+            font-size: 17px;
+        }
+
+        .floor-row {
+            display: grid;
+            grid-template-columns: 58px 1fr 36px;
+            align-items: center;
+            gap: 10px;
+            margin: 12px 0;
+        }
+
+        .floor-track {
+            overflow: hidden;
+            height: 9px;
+            border-radius: 8px;
+            background: var(--darkened-bg);
+        }
+
+        .floor-bar {
+            height: 100%;
+            border-radius: inherit;
+            background: var(--link-fg);
+        }
+
+        .dashboard-status {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--hairline-color);
+        }
+
+        .dashboard-status:last-child {
+            border-bottom: 0;
+        }
+
+        .dashboard-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .dashboard-action {
+            display: inline-block;
+            padding: 9px 13px;
+            border-radius: 6px;
+            background: var(--primary);
+            color: var(--button-fg);
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .dashboard-action:hover {
+            background: var(--primary);
+            color: var(--button-fg);
+            opacity: .9;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    {% hotel_dashboard_data as dashboard %}
+    <main class="hotel-dashboard" id="content-main">
+        <h1 class="dashboard-heading">Tổng quan khách sạn</h1>
+        <p class="dashboard-description">
+            Theo dõi nhanh tình trạng buồng phòng và dịch vụ của An Nhiên Hotel.
+        </p>
+
+        <section class="dashboard-cards" aria-label="Thống kê chính">
+            <article class="dashboard-card">
+                <p class="dashboard-card-label">Tổng số phòng</p>
+                <p class="dashboard-card-value">{{ dashboard.room_counts.total }}</p>
+            </article>
+            <article class="dashboard-card">
+                <p class="dashboard-card-label">Phòng thường</p>
+                <p class="dashboard-card-value">{{ dashboard.room_counts.standard }}</p>
+            </article>
+            <article class="dashboard-card">
+                <p class="dashboard-card-label">Phòng VIP</p>
+                <p class="dashboard-card-value">{{ dashboard.room_counts.vip }}</p>
+            </article>
+            <article class="dashboard-card">
+                <p class="dashboard-card-label">Loại phòng</p>
+                <p class="dashboard-card-value">{{ dashboard.room_type_count }}</p>
+            </article>
+            <article class="dashboard-card">
+                <p class="dashboard-card-label">Yêu cầu đặt phòng chờ xác nhận</p>
+                <p class="dashboard-card-value">{{ dashboard.pending_booking_count }}</p>
+            </article>
+        </section>
+
+        <section class="dashboard-panels" aria-label="Chi tiết vận hành">
+            <div class="dashboard-panel">
+                <h2>Phòng theo tầng</h2>
+                {% for floor in dashboard.floor_distribution %}
+                    <div class="floor-row">
+                        <span>Tầng {{ floor.floor }}</span>
+                        <div class="floor-track" aria-hidden="true">
+                            <div class="floor-bar" style="width: {{ floor.percentage }}%"></div>
+                        </div>
+                        <strong>{{ floor.total }}</strong>
+                    </div>
+                {% empty %}
+                    <p>Chưa có dữ liệu phòng.</p>
+                {% endfor %}
+            </div>
+
+            <div class="dashboard-panel">
+                <h2>Trạng thái phòng</h2>
+                <div class="dashboard-status">
+                    <span>Sẵn sàng</span>
+                    <strong>{{ dashboard.room_counts.ready }}</strong>
+                </div>
+                <div class="dashboard-status">
+                    <span>Đang dọn</span>
+                    <strong>{{ dashboard.room_counts.cleaning }}</strong>
+                </div>
+                <div class="dashboard-status">
+                    <span>Bảo trì</span>
+                    <strong>{{ dashboard.room_counts.maintenance }}</strong>
+                </div>
+                <div class="dashboard-status">
+                    <span>Tổng dịch vụ</span>
+                    <strong>{{ dashboard.service_counts.total }}</strong>
+                </div>
+                <div class="dashboard-status">
+                    <span>Dịch vụ đang phục vụ</span>
+                    <strong>{{ dashboard.service_counts.available }}</strong>
+                </div>
+            </div>
+        </section>
+
+        <nav class="dashboard-actions" aria-label="Tác vụ quản trị nhanh">
+            <a class="dashboard-action" href="{% url 'admin:rooms_room_changelist' %}">Quản lý phòng</a>
+            <a class="dashboard-action" href="{% url 'admin:rooms_roomtype_changelist' %}">Quản lý loại phòng</a>
+            <a class="dashboard-action" href="{% url 'admin:rooms_service_changelist' %}">Quản lý dịch vụ</a>
+            <a class="dashboard-action" href="{% url 'admin:rooms_bookingrequest_changelist' %}">Xử lý yêu cầu đặt phòng</a>
+        </nav>
+    </main>
+{% endblock %}

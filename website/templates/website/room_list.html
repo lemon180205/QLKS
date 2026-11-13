@@ -11,19 +11,52 @@
                 Khám phá các loại phòng và lựa chọn không gian
                 phù hợp cho kỳ nghỉ của bạn.
             </p>
+            <a class="button" href="#booking-search">Tìm phòng theo ngày</a>
+
+            <form
+                class="booking-search"
+                id="booking-search"
+                method="get"
+                action="{% url 'website:room_list' %}"
+            >
+                <div class="form-field">
+                    {{ search_form.check_in.label_tag }}
+                    {{ search_form.check_in }}
+                </div>
+                <div class="form-field">
+                    {{ search_form.check_out.label_tag }}
+                    {{ search_form.check_out }}
+                </div>
+                <div class="form-field">
+                    {{ search_form.guest_count.label_tag }}
+                    {{ search_form.guest_count }}
+                </div>
+                <button class="button" type="submit">Kiểm tra phòng trống</button>
+                {% if search_form.errors %}
+                    <div class="form-errors">
+                        {{ search_form.errors }}
+                    </div>
+                {% endif %}
+            </form>
         </div>
     </section>
 
-    <section class="section">
+    <section class="section" id="rooms">
         <div class="container">
-            <h2>Không gian nghỉ ngơi</h2>
+            <h2>
+                {% if has_availability_search %}
+                    Phòng còn trống theo ngày
+                {% else %}
+                    Không gian nghỉ ngơi
+                {% endif %}
+            </h2>
             <p class="muted">
-                Tham khảo loại phòng và giá mỗi đêm.
-                Giá hiển thị chưa xác nhận tình trạng phòng theo ngày.
+                Giá được tính theo mỗi đêm. Gửi yêu cầu để khách sạn kiểm tra
+                và xác nhận tình trạng phòng.
             </p>
 
             <div class="room-grid">
-                {% for room_type in room_types %}
+                {% for room_type, available_count in room_cards %}
                     <article class="room-card">
                         {% if room_type.image %}
     <img
@@ -41,23 +74,67 @@
                             <h3>{{ room_type.name }}</h3>
 
                             <p class="muted">
+                                {% if room_type.tier == "vip" %}Phòng VIP{% else %}Phòng thường{% endif %}
+                                ·
                                 Tối đa {{ room_type.capacity }} khách
+                                ·
+                                {% if has_availability_search %}
+                                    {{ available_count }} phòng còn trống
+                                {% else %}
+                                    {{ room_type.room_count }} phòng
+                                {% endif %}
+                            </p>
+
+                            <p class="price">
+                                {{ room_type.price_per_night|floatformat:"0g" }} ₫
+                                <span>/ đêm</span>
                             </p>
 
                             {% if room_type.description %}
                                 <p>{{ room_type.description|linebreaksbr }}</p>
                             {% endif %}
 
+                            <a class="button" href="{% url 'website:room_detail' room_type.pk %}">
+                                Xem chi tiết
+                            </a>
                             <a
-                            class="button"
-                            href="{% url 'website:room_detail' room_type.pk %}"
+                                class="button"
+                                href="{% url 'website:booking_request' room_type.pk %}?check_in={{ search_form.check_in.value|urlencode }}&amp;check_out={{ search_form.check_out.value|urlencode }}&amp;guest_count={{ search_form.guest_count.value|urlencode }}"
                             >
-                            Xem chi tiết
+                                Gửi yêu cầu đặt phòng
                             </a>
                         </div>
                     </article>
                 {% empty %}
-                    <p>Thông tin phòng sẽ sớm được cập nhật.</p>
+                    {% if has_availability_search %}
+                        <p>Không có loại phòng phù hợp còn trống trong thời gian này. Vui lòng thử ngày khác.</p>
+                    {% else %}
+                        <p>Thông tin phòng sẽ sớm được cập nhật.</p>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <section class="section" id="services">
+        <div class="container">
+            <h2>Dịch vụ tại khách sạn</h2>
+            <p class="muted">Các tiện ích đang phục vụ; vui lòng gửi yêu cầu để được tư vấn khi đặt phòng.</p>
+            <div class="service-grid">
+                {% for service in services %}
+                    <article class="service-card">
+                        <p class="eyebrow">{{ service.get_category_display }}</p>
+                        <h3>{{ service.name }}</h3>
+                        {% if service.description %}
+                            <p class="muted">{{ service.description }}</p>
+                        {% endif %}
+                        <p class="price">
+                            {{ service.price|floatformat:"0g" }} ₫
+                            <span>/ dịch vụ</span>
+                        </p>
+                    </article>
+                {% empty %}
+                    <p>Dịch vụ đang được cập nhật. Vui lòng liên hệ lễ tân khi lưu trú.</p>
                 {% endfor %}
             </div>
         </div>

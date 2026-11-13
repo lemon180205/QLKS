@@ -57,6 +57,25 @@
             text-decoration: underline;
         }
 
+        .nav-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .messages {
+            margin: 20px auto 0;
+            padding: 14px 18px;
+            border: 1px solid #b9d9c2;
+            border-radius: 10px;
+            background: #e8f5eb;
+            color: #245b48;
+        }
+
+        .messages p {
+            margin: 0;
+        }
+
         .hero {
             padding: 64px 0;
             background: #e8f0e9;
@@ -169,6 +188,82 @@
         object-fit: cover;
         border-radius: 16px;
         }
+
+        .booking-search {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            align-items: end;
+            gap: 16px;
+            margin-top: 28px;
+            padding: 20px;
+            border: 1px solid #d5e0d7;
+            border-radius: 14px;
+            background: white;
+        }
+
+        .form-field label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+
+        .form-field input,
+        .form-field select,
+        .form-field textarea {
+            width: 100%;
+            min-height: 42px;
+            padding: 8px 10px;
+            border: 1px solid #cbd5ce;
+            border-radius: 7px;
+            font: inherit;
+        }
+
+        .booking-search .button {
+            margin-top: 0;
+            min-height: 42px;
+            border: 0;
+            cursor: pointer;
+            font: inherit;
+        }
+
+        .form-errors {
+            margin: 0 0 18px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            background: #fff0ed;
+            color: #8d291b;
+        }
+
+        .service-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+            gap: 18px;
+        }
+
+        .service-card {
+            padding: 22px;
+            border: 1px solid #e2e7e2;
+            border-radius: 12px;
+            background: white;
+        }
+
+        .service-card h3 {
+            margin: 0 0 8px;
+        }
+
+        .booking-summary {
+            padding: 18px;
+            border-radius: 10px;
+            background: #e8f0e9;
+        }
+
+        .booking-estimate {
+            grid-column: 1 / -1;
+            margin: 0;
+            color: #245b48;
+            font-size: 18px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -178,15 +273,22 @@
                 An Nhiên Hotel
             </a>
 
-            <nav aria-label="Điều hướng chính">
-                <a class="nav-link" href="{% url 'website:room_list' %}">
-                    Khám phá phòng
-                </a>
+            <nav class="nav-links" aria-label="Điều hướng chính">
+                <a class="nav-link" href="{% url 'website:room_list' %}#rooms">Phòng nghỉ</a>
+                <a class="nav-link" href="{% url 'website:room_list' %}#services">Dịch vụ</a>
+                <a class="nav-link" href="{% url 'website:room_list' %}#booking-search">Tìm phòng</a>
             </nav>
         </div>
     </header>
 
     <main>
+        {% if messages %}
+            <div class="container messages" role="status">
+                {% for message in messages %}
+                    <p>{{ message }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
         {% block content %}{% endblock %}
     </main>
 

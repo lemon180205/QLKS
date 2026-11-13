@@ -1,0 +1,83 @@
+{% extends "website/base.html" %}
+
+{% block title %}Yêu cầu đặt {{ room_type.name }} | An Nhiên Hotel{% endblock %}
+
+{% block content %}
+    <section class="section">
+        <div class="container">
+            <a href="{% url 'website:room_detail' room_type.pk %}">← Quay lại thông tin phòng</a>
+            <h1>Gửi yêu cầu đặt phòng</h1>
+            <div class="booking-summary">
+                <strong>{{ room_type.name }}</strong>
+                <span> · Tối đa {{ room_type.capacity }} khách</span>
+                <p class="price">
+                    {{ room_type.price_per_night|floatformat:"0g" }} ₫
+                    <span>/ đêm</span>
+                </p>
+                <p class="muted">
+                    Đây là yêu cầu chờ khách sạn xác nhận, chưa phải đặt phòng hoàn tất.
+                    Giá cuối cùng có thể cần được khách sạn xác nhận.
+                </p>
+            </div>
+
+            <form
+                method="post"
+                class="booking-search"
+                id="booking-request-form"
+                data-nightly-rate="{{ room_type.price_per_night }}"
+            >
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                    <div class="form-errors">{{ form.non_field_errors }}</div>
+                {% endif %}
+                {% for field in form %}
+                    <div class="form-field">
+                        {{ field.label_tag }}
+                        {{ field }}
+                        {% if field.help_text %}
+                            <small>{{ field.help_text }}</small>
+                        {% endif %}
+                        {% if field.errors %}
+                            <div class="form-errors">{{ field.errors }}</div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+                <p class="booking-estimate" id="booking-estimate" role="status" aria-live="polite">
+                    Chọn ngày nhận và trả phòng để xem tổng giá dự kiến.
+                </p>
+                <button class="button" type="submit">Gửi yêu cầu</button>
+            </form>
+        </div>
+    </section>
+    <script>
+        const bookingForm = document.getElementById("booking-request-form");
+        const checkInField = bookingForm.querySelector('[name="check_in"]');
+        const checkOutField = bookingForm.querySelector('[name="check_out"]');
+        const estimate = document.getElementById("booking-estimate");
+        const nightlyRate = Number(bookingForm.dataset.nightlyRate);
+        const currency = new Intl.NumberFormat("vi-VN");
+
+        function updateEstimate() {
+            if (!checkInField.value || !checkOutField.value) {
+                estimate.textContent = "Chọn ngày nhận và trả phòng để xem tổng giá dự kiến.";
+                return;
+            }
+
+            const checkIn = Date.parse(`${checkInField.value}T00:00:00Z`);
+            const checkOut = Date.parse(`${checkOutField.value}T00:00:00Z`);
+            const nights = Math.round((checkOut - checkIn) / 86400000);
+
+            if (nights < 1) {
+                estimate.textContent = "Ngày trả phòng phải sau ngày nhận phòng.";
+                return;
+            }
+
+            estimate.textContent =
+                `${nights} đêm · Tổng giá dự kiến: ${currency.format(nightlyRate * nights)} ₫`;
+        }
+
+        checkInField.addEventListener("change", updateEstimate);
+        checkOutField.addEventListener("change", updateEstimate);
+        updateEstimate();
+    </script>
+{% endblock %}

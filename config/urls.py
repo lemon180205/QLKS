@@ -19,6 +19,11 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
+admin.site.site_header = "An Nhiên Hotel | Quản trị"
+admin.site.site_title = "Quản trị An Nhiên Hotel"
+admin.site.index_title = "Bảng điều khiển"
+admin.site.index_template = "rooms/admin/index.html"
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include("website.urls")),
