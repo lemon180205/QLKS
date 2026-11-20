@@ -26,6 +26,7 @@ admin.site.index_template = "rooms/admin/index.html"
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("tai-khoan/", include("accounts.urls")),
     path("", include("website.urls")),
 ]
 

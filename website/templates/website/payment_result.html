@@ -1,0 +1,30 @@
+{% extends "website/base.html" %}
+
+{% block title %}Kết quả thanh toán | An Nhiên Hotel{% endblock %}
+
+{% block content %}
+<section class="section">
+    <div class="container narrow-container">
+        <div class="form-panel">
+            <p class="eyebrow">THANH TOÁN MOMO</p>
+            {% if payment.status == "paid" %}
+                <h1>Thanh toán thành công</h1>
+                <p>Đặt phòng <strong>{{ payment.booking.reference_code }}</strong> đã được ghi nhận thanh toán.</p>
+            {% elif payment.status == "failed" %}
+                <h1>Giao dịch chưa thành công</h1>
+                <p>Đặt phòng vẫn được lưu trong tài khoản. Bạn có thể thử lại hoặc liên hệ lễ tân.</p>
+            {% else %}
+                <h1>Đang xác nhận giao dịch</h1>
+                <p>MoMo đã chuyển bạn về trang khách sạn. Trạng thái chỉ được cập nhật sau khi khách sạn nhận xác nhận an toàn từ MoMo.</p>
+            {% endif %}
+            {% if payment %}
+                <p class="muted">
+                    Mã đặt phòng: {{ payment.booking.reference_code }}<br>
+                    Số tiền: {{ payment.amount|floatformat:"0g" }} ₫
+                </p>
+            {% endif %}
+            <a class="button" href="{% url 'accounts:bookings' %}">Về đặt phòng của tôi</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

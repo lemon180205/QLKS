@@ -1,4 +1,3 @@
-import os
 """
 Django settings for config project.
 
@@ -13,22 +12,32 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+load_dotenv(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+DEBUG = os.environ.get("DJANGO_DEBUG", "true").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+}
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ValueError("Set DJANGO_SECRET_KEY when DEBUG is disabled.")
+    SECRET_KEY = "django-insecure-local-development-only"
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get(
-    "DJANGO_SECRET_KEY",
-    "django-insecure-local-development-only",
-)
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if host.strip()
+]
 
 
 # Application definition
@@ -132,3 +141,53 @@ AUTH_USER_MODEL = "accounts.User"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+EMAIL_BACKEND = os.environ.get(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.smtp.EmailBackend",
+)
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+}
+EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+}
+EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT", "15"))
+DEFAULT_FROM_EMAIL = os.environ.get(
+    "DEFAULT_FROM_EMAIL",
+    EMAIL_HOST_USER or "noreply@annhienhotel.local",
+)
+
+MOMO_PARTNER_CODE = os.environ.get("MOMO_PARTNER_CODE", "")
+MOMO_ACCESS_KEY = os.environ.get("MOMO_ACCESS_KEY", "")
+MOMO_SECRET_KEY = os.environ.get("MOMO_SECRET_KEY", "")
+MOMO_ENDPOINT = os.environ.get(
+    "MOMO_ENDPOINT",
+    "https://test-payment.momo.vn/v2/gateway/api/create",
+)
+MOMO_REDIRECT_URL = os.environ.get("MOMO_REDIRECT_URL", "")
+MOMO_IPN_URL = os.environ.get("MOMO_IPN_URL", "")
+
+LOGIN_URL = "accounts:login"
+LOGIN_REDIRECT_URL = "accounts:bookings"
+LOGOUT_REDIRECT_URL = "website:room_list"
+
+if not DEBUG:
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = int(
+        os.environ.get("DJANGO_SECURE_HSTS_SECONDS", "31536000")
+    )
+    SECURE_SSL_REDIRECT = os.environ.get(
+        "DJANGO_SECURE_SSL_REDIRECT",
+        "true",
+    ).strip().lower() in {"1", "true", "yes"}

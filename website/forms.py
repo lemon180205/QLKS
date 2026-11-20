@@ -23,6 +23,12 @@ class RoomSearchForm(forms.Form):
         initial=1,
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        minimum_date = timezone.localdate().isoformat()
+        self.fields["check_in"].widget.attrs["min"] = minimum_date
+        self.fields["check_out"].widget.attrs["min"] = minimum_date
+
     def clean(self):
         cleaned_data = super().clean()
         check_in = cleaned_data.get("check_in")
@@ -44,6 +50,8 @@ class RoomSearchForm(forms.Form):
 
 
 class BookingRequestForm(forms.ModelForm):
+    email = forms.EmailField(label="Email", required=True)
+
     class Meta:
         model = BookingRequest
         fields = (
@@ -62,6 +70,9 @@ class BookingRequestForm(forms.ModelForm):
     def __init__(self, *args, room_type, **kwargs):
         self.room_type = room_type
         super().__init__(*args, **kwargs)
+        minimum_date = timezone.localdate().isoformat()
+        self.fields["check_in"].widget.attrs["min"] = minimum_date
+        self.fields["check_out"].widget.attrs["min"] = minimum_date
 
     def clean(self):
         cleaned_data = super().clean()

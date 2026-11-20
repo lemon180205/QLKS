@@ -5,8 +5,9 @@
 {% block content %}
     <section class="section">
         <div class="container">
-            <a href="{% url 'website:room_detail' room_type.pk %}">← Quay lại thông tin phòng</a>
-            <h1>Gửi yêu cầu đặt phòng</h1>
+            <a class="back-link" href="{% url 'website:room_detail' room_type.pk %}">← Quay lại thông tin phòng</a>
+            <p class="eyebrow booking-eyebrow">ĐẶT PHÒNG AN TOÀN</p>
+            <h1>Thông tin lưu trú</h1>
             <div class="booking-summary">
                 <strong>{{ room_type.name }}</strong>
                 <span> · Tối đa {{ room_type.capacity }} khách</span>
@@ -15,14 +16,13 @@
                     <span>/ đêm</span>
                 </p>
                 <p class="muted">
-                    Đây là yêu cầu chờ khách sạn xác nhận, chưa phải đặt phòng hoàn tất.
-                    Giá cuối cùng có thể cần được khách sạn xác nhận.
+                    Yêu cầu sẽ được giữ trong tài khoản của bạn. Sau khi gửi, bạn có thể thanh toán qua MoMo hoặc chờ lễ tân xác nhận.
                 </p>
             </div>
 
             <form
                 method="post"
-                class="booking-search"
+                class="stacked-form booking-form"
                 id="booking-request-form"
                 data-nightly-rate="{{ room_type.price_per_night }}"
             >
@@ -45,7 +45,7 @@
                 <p class="booking-estimate" id="booking-estimate" role="status" aria-live="polite">
                     Chọn ngày nhận và trả phòng để xem tổng giá dự kiến.
                 </p>
-                <button class="button" type="submit">Gửi yêu cầu</button>
+                <button class="button" type="submit">Tạo yêu cầu đặt phòng</button>
             </form>
         </div>
     </section>

@@ -1,5 +1,5 @@
 import uuid
-
+from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import F, Q
@@ -126,6 +126,17 @@ class BookingRequest(models.Model):
         CHECKED_OUT = "checked_out", "Đã trả phòng"
         CANCELLED = "cancelled", "Đã hủy"
 
+    class Channel(models.TextChoices):
+        WEBSITE = "website", "Website"
+        STAFF = "staff", "Lễ tân"
+
+    class PaymentStatus(models.TextChoices):
+        UNPAID = "unpaid", "Chưa thanh toán"
+        PENDING = "pending", "Đang thanh toán"
+        PAID = "paid", "Đã thanh toán"
+        FAILED = "failed", "Thanh toán thất bại"
+        AT_HOTEL = "at_hotel", "Thanh toán tại khách sạn"
+
     room_type = models.ForeignKey(
         RoomType,
         on_delete=models.PROTECT,
@@ -139,8 +150,31 @@ class BookingRequest(models.Model):
         editable=False,
     )
     guest_name = models.CharField("Tên khách", max_length=120)
-    email = models.EmailField("Email")
+    email = models.EmailField("Email", blank=True)
     phone = models.CharField("Số điện thoại", max_length=20)
+    customer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="hotel_bookings",
+        null=True,
+        blank=True,
+        verbose_name="Tài khoản khách",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_hotel_bookings",
+        null=True,
+        blank=True,
+        editable=False,
+        verbose_name="Nhân viên tạo",
+    )
+    channel = models.CharField(
+        "Kênh đặt phòng",
+        max_length=10,
+        choices=Channel.choices,
+        default=Channel.WEBSITE,
+    )
     check_in = models.DateField("Ngày nhận phòng")
     check_out = models.DateField("Ngày trả phòng")
     guest_count = models.PositiveSmallIntegerField(
@@ -163,6 +197,12 @@ class BookingRequest(models.Model):
         choices=Status.choices,
         default=Status.PENDING,
     )
+    payment_status = models.CharField(
+        "Trạng thái thanh toán",
+        max_length=10,
+        choices=PaymentStatus.choices,
+        default=PaymentStatus.UNPAID,
+    )
     created_at = models.DateTimeField("Ngày gửi yêu cầu", auto_now_add=True)
 
     class Meta:
@@ -182,3 +222,48 @@ class BookingRequest(models.Model):
 
     def __str__(self):
         return f"{self.guest_name} - {self.room_type} ({self.check_in})"
+
+
+class BookingPayment(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Đang thanh toán"
+        PAID = "paid", "Đã thanh toán"
+        FAILED = "failed", "Thanh toán thất bại"
+
+    booking = models.ForeignKey(
+        BookingRequest,
+        on_delete=models.PROTECT,
+        related_name="payment_attempts",
+        verbose_name="Yêu cầu đặt phòng",
+    )
+    order_id = models.UUIDField("Mã giao dịch", default=uuid.uuid4, unique=True)
+    request_id = models.UUIDField("Mã yêu cầu MoMo", default=uuid.uuid4, unique=True)
+    amount = models.DecimalField("Số tiền (VNĐ)", max_digits=12, decimal_places=0)
+    pay_url = models.URLField("Đường dẫn thanh toán", max_length=500, blank=True)
+    status = models.CharField(
+        "Trạng thái",
+        max_length=10,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    transaction_id = models.CharField(
+        "Mã giao dịch MoMo",
+        max_length=64,
+        blank=True,
+    )
+    created_at = models.DateTimeField("Ngày tạo", auto_now_add=True)
+    paid_at = models.DateTimeField("Ngày thanh toán", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Giao dịch thanh toán"
+        verbose_name_plural = "Giao dịch thanh toán"
+        ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(amount__gt=0),
+                name="booking_payment_amount_positive",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.order_id} - {self.get_status_display()}"

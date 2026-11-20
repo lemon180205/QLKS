@@ -1,0 +1,69 @@
+{% extends "website/base.html" %}
+
+{% block title %}Đặt phòng của tôi | An Nhiên Hotel{% endblock %}
+
+{% block content %}
+<section class="section">
+    <div class="container">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">TÀI KHOẢN CỦA BẠN</p>
+                <h1>Đặt phòng của tôi</h1>
+                <p class="muted">Xin chào {{ request.user.get_full_name|default:request.user.username }}. Theo dõi lịch lưu trú tại đây.</p>
+            </div>
+            <a class="button button-secondary" href="{% url 'website:room_list' %}#rooms">Khám phá phòng</a>
+        </div>
+
+        <div class="booking-list">
+            {% for booking in bookings %}
+                <article class="booking-card">
+                    <div class="booking-card-header">
+                        <div>
+                            <p class="eyebrow">MÃ ĐẶT PHÒNG {{ booking.reference_code }}</p>
+                            <h2>{{ booking.room_type.name }}</h2>
+                        </div>
+                        <span class="status-pill status-{{ booking.status }}">
+                            {{ booking.get_status_display }}
+                        </span>
+                    </div>
+                    <div class="booking-details">
+                        <p><span>Nhận phòng</span><strong>{{ booking.check_in|date:"d/m/Y" }}</strong></p>
+                        <p><span>Trả phòng</span><strong>{{ booking.check_out|date:"d/m/Y" }}</strong></p>
+                        <p><span>Số khách</span><strong>{{ booking.guest_count }}</strong></p>
+                        <p><span>Thanh toán</span><strong>{{ booking.get_payment_status_display }}</strong></p>
+                        <p><span>Tổng tiền</span><strong>{{ booking.total_price|floatformat:"0g" }} ₫</strong></p>
+                    </div>
+                    <div class="booking-actions">
+                        {% with active_payment=booking.payment_attempts.all.0 %}
+                            {% if booking.payment_status == "paid" %}
+                                <span class="muted">Thanh toán đã được ghi nhận.</span>
+                            {% elif active_payment and active_payment.status == "pending" and active_payment.pay_url %}
+                                <a class="button" href="{{ active_payment.pay_url }}">Tiếp tục thanh toán MoMo</a>
+                            {% elif booking.status == "pending" or booking.status == "confirmed" %}
+                                <form method="post" action="{% url 'website:initiate_momo_payment' booking.pk %}">
+                                    {% csrf_token %}
+                                    <button class="button" type="submit">Thanh toán qua MoMo</button>
+                                </form>
+                            {% endif %}
+                        {% endwith %}
+                        {% if booking.status == "pending" or booking.status == "confirmed" %}
+                            {% if booking.payment_status != "paid" and booking.payment_status != "pending" %}
+                                <form method="post" action="{% url 'accounts:cancel_booking' booking.pk %}">
+                                    {% csrf_token %}
+                                    <button class="button button-danger" type="submit">Hủy yêu cầu</button>
+                                </form>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </article>
+            {% empty %}
+                <div class="empty-state">
+                    <h2>Bạn chưa có đặt phòng nào</h2>
+                    <p class="muted">Tìm phòng phù hợp và gửi yêu cầu đặt phòng để bắt đầu.</p>
+                    <a class="button" href="{% url 'website:room_list' %}#rooms">Xem phòng nghỉ</a>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endblock %}

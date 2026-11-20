@@ -5,13 +5,15 @@
 {% block content %}
     <section class="hero">
         <div class="container">
-            <div class="eyebrow">CHÀO MỪNG BẠN ĐẾN VỚI AN NHIÊN</div>
-            <h1>Một nơi dừng chân,<br>một khoảng trời bình yên.</h1>
-            <p>
+            <div class="hero-content">
+                <p class="eyebrow">CHÀO MỪNG BẠN ĐẾN VỚI AN NHIÊN</p>
+                <h1>Một nơi dừng chân,<br>một khoảng trời bình yên.</h1>
+                <p class="hero-copy">
                 Khám phá các loại phòng và lựa chọn không gian
                 phù hợp cho kỳ nghỉ của bạn.
-            </p>
-            <a class="button" href="#booking-search">Tìm phòng theo ngày</a>
+                </p>
+                <a class="button hero-link" href="#booking-search">Tìm phòng theo ngày</a>
+            </div>
 
             <form
                 class="booking-search"
@@ -51,29 +53,28 @@
                 {% endif %}
             </h2>
             <p class="muted">
-                Giá được tính theo mỗi đêm. Gửi yêu cầu để khách sạn kiểm tra
-                và xác nhận tình trạng phòng.
+                Giá được tính theo mỗi đêm. Đặt phòng trực tuyến an toàn hoặc liên hệ lễ tân để được hỗ trợ.
             </p>
 
             <div class="room-grid">
                 {% for room_type, available_count in room_cards %}
                     <article class="room-card">
                         {% if room_type.image %}
-    <img
-        class="room-image"
-        src="{{ room_type.image.url }}"
-        alt="Không gian {{ room_type.name }}"
-    >
-{% else %}
-    <div class="room-placeholder">
-        Ảnh phòng đang được cập nhật
-    </div>
-{% endif %}
+                            <img
+                                class="room-image"
+                                src="{{ room_type.image.url }}"
+                                alt="Không gian {{ room_type.name }}"
+                            >
+                        {% else %}
+                            <div class="room-placeholder">
+                                Ảnh phòng đang được cập nhật
+                            </div>
+                        {% endif %}
 
                         <div class="room-content">
                             <h3>{{ room_type.name }}</h3>
 
-                            <p class="muted">
+                            <p class="room-meta">
                                 {% if room_type.tier == "vip" %}Phòng VIP{% else %}Phòng thường{% endif %}
                                 ·
                                 Tối đa {{ room_type.capacity }} khách
@@ -91,18 +92,20 @@
                             </p>
 
                             {% if room_type.description %}
-                                <p>{{ room_type.description|linebreaksbr }}</p>
+                                <p class="muted">{{ room_type.description|linebreaksbr }}</p>
                             {% endif %}
 
-                            <a class="button" href="{% url 'website:room_detail' room_type.pk %}">
-                                Xem chi tiết
-                            </a>
-                            <a
-                                class="button"
-                                href="{% url 'website:booking_request' room_type.pk %}?check_in={{ search_form.check_in.value|urlencode }}&amp;check_out={{ search_form.check_out.value|urlencode }}&amp;guest_count={{ search_form.guest_count.value|urlencode }}"
-                            >
-                                Gửi yêu cầu đặt phòng
-                            </a>
+                            <div class="room-actions">
+                                <a class="button button-secondary" href="{% url 'website:room_detail' room_type.pk %}">
+                                    Xem chi tiết
+                                </a>
+                                <a
+                                    class="button"
+                                    href="{% url 'website:booking_request' room_type.pk %}?check_in={{ search_form.check_in.value|default_if_none:''|urlencode }}&amp;check_out={{ search_form.check_out.value|default_if_none:''|urlencode }}&amp;guest_count={{ search_form.guest_count.value|default_if_none:''|urlencode }}"
+                                >
+                                    Đặt phòng
+                                </a>
+                            </div>
                         </div>
                     </article>
                 {% empty %}
@@ -119,7 +122,7 @@
     <section class="section" id="services">
         <div class="container">
             <h2>Dịch vụ tại khách sạn</h2>
-            <p class="muted">Các tiện ích đang phục vụ; vui lòng gửi yêu cầu để được tư vấn khi đặt phòng.</p>
+            <p class="muted">Các tiện ích và trải nghiệm được chuẩn bị để kỳ nghỉ của bạn thêm trọn vẹn.</p>
             <div class="service-grid">
                 {% for service in services %}
                     <article class="service-card">

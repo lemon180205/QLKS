@@ -5,50 +5,44 @@
 {% block content %}
 <section class="section">
     <div class="container">
-        <a href="{% url 'website:room_list' %}">
+        <a class="back-link" href="{% url 'website:room_list' %}">
             ← Quay lại danh sách phòng
         </a>
+        <div class="detail-layout detail-layout-spaced">
+            <div>
+                {% if room_type.image %}
+                    <img
+                        class="detail-image"
+                        src="{{ room_type.image.url }}"
+                        alt="Không gian {{ room_type.name }}"
+                    >
+                {% else %}
+                    <div class="room-placeholder detail-image">
+                        Ảnh phòng đang được cập nhật
+                    </div>
+                {% endif %}
 
-        <h1>{{ room_type.name }}</h1>
-        <p>
-            {% if room_type.tier == "vip" %}Phòng VIP{% else %}Phòng thường{% endif %}
-            · Tối đa {{ room_type.capacity }} khách
-        </p>
-
-        {% if room_type.image %}
-            <img
-                class="detail-image"
-                src="{{ room_type.image.url }}"
-                alt="Không gian {{ room_type.name }}"
-            >
-        {% else %}
-            <div class="room-placeholder">
-                Ảnh phòng đang được cập nhật
+                <h2 class="detail-copy-heading">Không gian nghỉ ngơi</h2>
+                <div class="muted">
+                    {{ room_type.description|default:"Thông tin phòng đang được cập nhật."|linebreaks }}
+                </div>
             </div>
-        {% endif %}
-
-        <h2>Thông tin loại phòng</h2>
-        <p>Tối đa {{ room_type.capacity }} khách</p>
-
-        <p class="price">
-            {{ room_type.price_per_night|floatformat:"0g" }} ₫
-            <span>/ đêm</span>
-        </p>
-
-        <h2>Mô tả</h2>
-        {{ room_type.description|default:"Thông tin đang được cập nhật."|linebreaks }}
-
-        <p class="muted">
-            Tình trạng phòng và tổng tiền sẽ được kiểm tra
-            theo ngày nhận và ngày trả phòng.
-        </p>
-
-        <a
-            class="button"
-            href="{% url 'website:booking_request' room_type.pk %}"
-        >
-            Gửi yêu cầu đặt phòng
-        </a>
+            <aside class="detail-panel">
+                <p class="eyebrow">{% if room_type.tier == "vip" %}Phòng VIP{% else %}Phòng thường{% endif %}</p>
+                <h1>{{ room_type.name }}</h1>
+                <p class="muted">Sức chứa tối đa {{ room_type.capacity }} khách</p>
+                <p class="price">
+                    {{ room_type.price_per_night|floatformat:"0g" }} ₫
+                    <span>/ đêm</span>
+                </p>
+                <p class="muted">
+                    Giá cuối cùng được tính theo số đêm. Tình trạng phòng sẽ được kiểm tra khi bạn gửi yêu cầu.
+                </p>
+                <a class="button" href="{% url 'website:booking_request' room_type.pk %}">
+                    Chọn phòng này
+                </a>
+            </aside>
+        </div>
     </div>
 </section>
 {% endblock %}
