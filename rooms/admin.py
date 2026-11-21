@@ -37,6 +37,7 @@ class BookingRequestAdmin(admin.ModelAdmin):
             model = BookingRequest
             fields = (
                 "room_type",
+                "assigned_room",
                 "guest_name",
                 "email",
                 "phone",
@@ -46,7 +47,7 @@ class BookingRequestAdmin(admin.ModelAdmin):
                 "guest_count",
                 "status",
                 "payment_status",
-            )
+                )
             widgets = {
                 "check_in": forms.DateInput(attrs={"type": "date"}),
                 "check_out": forms.DateInput(attrs={"type": "date"}),
@@ -60,8 +61,18 @@ class BookingRequestAdmin(admin.ModelAdmin):
             guest_count = cleaned_data.get("guest_count")
             status = cleaned_data.get("status")
 
-            if check_in and check_in < timezone.localdate():
-                self.add_error("check_in", "Ngày nhận phòng không thể ở quá khứ.")
+            if (
+                check_in
+                and check_in < timezone.localdate()
+                and (
+                    not self.instance.pk
+                    or "check_in" in self.changed_data
+                )
+            ):
+                self.add_error(
+                    "check_in",
+                    "Ngày nhận phòng không thể ở quá khứ.",
+                )
             if check_in and check_out and check_out <= check_in:
                 self.add_error(
                     "check_out",
@@ -116,6 +127,46 @@ class BookingRequestAdmin(admin.ModelAdmin):
                     raise forms.ValidationError(
                         "Không còn phòng trống cho loại phòng và thời gian này."
                     )
+
+
+
+            assigned_room = cleaned_data.get("assigned_room")
+
+            if assigned_room and room_type:
+                if assigned_room.room_type_id != room_type.pk:
+                    self.add_error(
+                        "assigned_room",
+                        "Phòng phải thuộc đúng loại phòng đã đặt.",
+                    )
+
+                if (
+                    assigned_room.status == Room.Status.MAINTENANCE
+                    and status in ACTIVE_BOOKING_STATUSES
+                ):
+                    self.add_error(
+                        "assigned_room",
+                        "Phòng đang bảo trì, không thể gán.",
+                    )
+
+                if (
+                    check_in
+                    and check_out
+                    and check_out > check_in
+                    and status in ACTIVE_BOOKING_STATUSES
+                ):
+                    conflicts = BookingRequest.objects.filter(
+                        assigned_room=assigned_room,
+                        status__in=ACTIVE_BOOKING_STATUSES,
+                        check_in__lt=check_out,
+                        check_out__gt=check_in,
+                    ).exclude(pk=self.instance.pk)
+
+                    if conflicts.exists():
+                        self.add_error(
+                            "assigned_room",
+                            "Phòng đã được gán cho đơn khác trong thời gian này.",
+                        )
+
             return cleaned_data
 
     form = BookingRequestAdminForm
@@ -124,6 +175,7 @@ class BookingRequestAdmin(admin.ModelAdmin):
         "guest_name",
         "phone",
         "room_type",
+        "assigned_room",
         "check_in",
         "check_out",
         "guest_count",
@@ -131,6 +183,7 @@ class BookingRequestAdmin(admin.ModelAdmin):
         "status",
         "payment_status",
         "channel",
+        
     )
     list_filter = ("status", "payment_status", "channel", "check_in", "room_type")
     search_fields = (
@@ -140,7 +193,7 @@ class BookingRequestAdmin(admin.ModelAdmin):
         "phone",
         "customer__username",
     )
-    list_select_related = ("room_type", "customer", "created_by")
+    list_select_related = ("room_type", "customer", "created_by", "assigned_room")
     autocomplete_fields = ("customer",)
     readonly_fields = (
         "reference_code",
@@ -158,9 +211,17 @@ class BookingRequestAdmin(admin.ModelAdmin):
             {"fields": ("guest_name", "phone", "email", "customer")},
         ),
         (
-            "Lịch đặt phòng",
-            {"fields": ("room_type", "check_in", "check_out", "guest_count")},
-        ),
+                "Lịch đặt phòng",
+                {
+                    "fields": (
+                        "room_type",
+                        "assigned_room",
+                        "check_in",
+                        "check_out",
+                        "guest_count",
+                    )
+                },
+            ),
         (
             "Xử lý",
             {"fields": ("status", "payment_status", "channel", "created_by")},

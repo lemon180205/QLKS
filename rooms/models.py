@@ -143,6 +143,15 @@ class BookingRequest(models.Model):
         related_name="booking_requests",
         verbose_name="Loại phòng",
     )
+
+    assigned_room = models.ForeignKey(
+        Room,
+        on_delete=models.PROTECT,
+        related_name="assigned_bookings",
+        null=True,
+        blank=True,
+        verbose_name="Phòng được gán",
+    )
     reference_code = models.UUIDField(
         "Mã yêu cầu",
         default=uuid.uuid4,
@@ -180,6 +189,9 @@ class BookingRequest(models.Model):
     guest_count = models.PositiveSmallIntegerField(
         "Số khách",
         validators=[MinValueValidator(1)],
+
+
+    
     )
     nightly_rate = models.DecimalField(
         "Giá mỗi đêm tại thời điểm đặt (VNĐ)",
