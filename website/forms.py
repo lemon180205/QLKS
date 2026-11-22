@@ -20,7 +20,7 @@ class RoomSearchForm(forms.Form):
         label="Số khách",
         required=False,
         min_value=1,
-        initial=1,
+        initial=2,
     )
 
     def __init__(self, *args, **kwargs):

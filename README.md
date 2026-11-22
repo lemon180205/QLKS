@@ -70,13 +70,13 @@ Trang `/admin/` là dashboard quản trị, có thanh điều hướng bên trá
 - **Dịch vụ**: quản lý dịch vụ ăn uống, giặt ủi hoặc dịch vụ khác; cập nhật giá và trạng thái phục vụ.
 - **Yêu cầu đặt phòng**: xem thông tin khách, lịch lưu trú và tổng giá dự kiến; cập nhật trạng thái chờ xác nhận, đã xác nhận, đang lưu trú, đã trả phòng hoặc đã hủy.
 - **Đặt hộ qua điện thoại**: nhân viên mở Yêu cầu đặt phòng và thêm hồ sơ bằng tên/số điện thoại; email và liên kết tài khoản khách không bắt buộc. Có thể lọc theo trạng thái, ngày và loại phòng.
-- **Tài khoản khách**: khách đăng ký/đăng nhập để xem lịch đặt của mình, theo dõi thanh toán và hủy yêu cầu chưa thanh toán.
+- **Tài khoản khách**: không bắt buộc để tìm phòng hoặc gửi yêu cầu đặt phòng. Khách có tài khoản có thể đăng nhập để xem lịch đặt, theo dõi thanh toán và hủy yêu cầu chưa thanh toán.
 - **MoMo sandbox**: khách thanh toán trong tài khoản. Chỉ IPN hợp lệ có chữ ký mới cập nhật thanh toán và xác nhận đặt phòng; trang chuyển hướng từ MoMo không tự được coi là bằng chứng thanh toán.
 - **Email SMTP**: hệ thống gửi email khi nhận yêu cầu, khi thanh toán thành công và khi lễ tân tạo/cập nhật đặt phòng. Nếu gửi thất bại, đặt phòng vẫn được lưu và người dùng được thông báo; kiểm tra log và cấu hình SMTP.
 
 Lần đầu chạy `python manage.py migrate`, hệ thống tạo sẵn 5 loại phòng và 50 phòng (30 phòng thường, 20 phòng VIP), cùng một số dịch vụ mẫu. Migration chỉ tạo dữ liệu mẫu một lần; các thay đổi sau đó được lưu trong database của máy.
 
-Khách có thể tìm phòng theo ngày và số khách, xem dịch vụ đang mở, rồi gửi yêu cầu đặt phòng trên website. Khách cần tài khoản để theo dõi lịch đặt và thanh toán; nhân viên có thể tiếp nhận đặt phòng qua điện thoại trong Admin. Yêu cầu chỉ được xác nhận sau khi thanh toán MoMo thành công hoặc lễ tân xác nhận. Phòng trong yêu cầu đang hoạt động được tính vào lượng phòng còn trống.
+Khách có thể tìm phòng theo ngày và số khách theo giao diện đặt phòng lấy cảm hứng từ các trang OTA, xem dịch vụ đang mở, rồi gửi yêu cầu đặt phòng trên website mà không cần đăng nhập. Biểu mẫu yêu cầu tên, email và số điện thoại để lễ tân liên hệ; sau khi gửi, khách nhận mã đặt phòng và có thể đưa mã cho lễ tân khi đến để xác nhận thông tin. Yêu cầu ở trạng thái chờ xác nhận, không đồng nghĩa với xác nhận lưu trú hay thanh toán thành công. Khách có tài khoản có thể đăng nhập để theo dõi đặt phòng và thanh toán; nhân viên có thể tiếp nhận đặt phòng qua điện thoại trong Admin. Phòng trong yêu cầu đang hoạt động được tính vào lượng phòng còn trống.
 
 ## Chạy lại dự án
 

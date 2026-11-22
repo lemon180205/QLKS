@@ -131,7 +131,7 @@ class BookingRequestTests(TestCase):
         data.update(overrides)
         return data
 
-    def test_guest_can_submit_booking_request(self):
+    def test_customer_can_submit_booking_request(self):
         response = self.client.post(
             self.url,
             self.booking_data(),
@@ -152,16 +152,30 @@ class BookingRequestTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn(str(booking.reference_code), mail.outbox[0].body)
 
-    def test_booking_requires_customer_account(self):
+    def test_anonymous_guest_can_book_and_view_confirmation_without_account(self):
         self.client.logout()
 
-        response = self.client.post(self.url, self.booking_data())
-
-        self.assertRedirects(
-            response,
-            f"{reverse('accounts:login')}?next={self.url}",
+        response = self.client.post(
+            self.url,
+            self.booking_data(),
+            follow=True,
         )
-        self.assertEqual(BookingRequest.objects.count(), 0)
+
+        self.assertEqual(BookingRequest.objects.count(), 1)
+        booking = BookingRequest.objects.get()
+        confirmation_url = reverse(
+            "website:booking_confirmation",
+            args=[booking.reference_code],
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.request["PATH_INFO"], confirmation_url)
+        self.assertIsNone(booking.customer)
+        self.assertEqual(booking.status, BookingRequest.Status.PENDING)
+        self.assertContains(response, str(booking.reference_code))
+        self.assertContains(response, "chờ lễ tân xác nhận")
+        self.assertNotContains(response, "Đặt phòng của tôi")
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(str(booking.reference_code), mail.outbox[0].body)
 
     def test_booking_rejects_too_many_guests(self):
         response = self.client.post(
