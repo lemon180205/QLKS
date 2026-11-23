@@ -186,6 +186,24 @@ class BookingRequest(models.Model):
     )
     check_in = models.DateField("Ngày nhận phòng")
     check_out = models.DateField("Ngày trả phòng")
+    actual_check_in = models.DateTimeField(
+        "Thời gian nhận phòng thực tế",
+        null=True,
+        blank=True,
+        editable=False,
+    )
+
+    actual_check_out = models.DateTimeField(
+        "Thời gian trả phòng thực tế",
+        null=True,
+        blank=True,
+        editable=False,
+    )
+
+    guest_count = models.PositiveSmallIntegerField(
+        "Số khách",
+        validators=[MinValueValidator(1)],
+    )
     guest_count = models.PositiveSmallIntegerField(
         "Số khách",
         validators=[MinValueValidator(1)],

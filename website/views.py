@@ -313,12 +313,15 @@ def momo_ipn(request):
             payment.transaction_id = str(payload.get("transId", ""))
             payment.paid_at = timezone.now()
             booking.payment_status = BookingRequest.PaymentStatus.PAID
-            if booking.status != BookingRequest.Status.CANCELLED:
+            if booking.status in (
+                BookingRequest.Status.PENDING,
+                BookingRequest.Status.CONFIRMED,
+            ):
                 booking.status = BookingRequest.Status.CONFIRMED
-            else:
+            elif booking.status == BookingRequest.Status.CANCELLED:
                 logger.error(
-                    "Payment succeeded after booking %s was cancelled; manual "
-                    "refund review is required.",
+                    "Payment succeeded after booking %s was cancelled; "
+                    "manual refund review is required.",
                     booking.reference_code,
                 )
             send_payment_email = True
