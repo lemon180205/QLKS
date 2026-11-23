@@ -1,0 +1,40 @@
+{% extends "website/base.html" %}
+
+{% block title %}Xác nhận yêu cầu đặt phòng | An Nhiên Hotel{% endblock %}
+
+{% block content %}
+<section class="section confirmation-section">
+    <div class="container narrow-container">
+        <article class="confirmation-card">
+            <div class="confirmation-icon" aria-hidden="true">✓</div>
+            <p class="eyebrow">YÊU CẦU ĐÃ ĐƯỢC GỬI</p>
+            <h1>Khách sạn đã nhận thông tin của bạn</h1>
+            <p class="muted">
+                Yêu cầu đang chờ lễ tân xác nhận. Bạn chưa cần đăng nhập hoặc thanh toán trực tuyến.
+                Hãy lưu mã đặt phòng này và cung cấp cho lễ tân khi đến để xác nhận thông tin lưu trú.
+            </p>
+
+            <div class="confirmation-reference">
+                <span>Mã đặt phòng</span>
+                <strong>{{ booking.reference_code }}</strong>
+            </div>
+
+            <div class="booking-details confirmation-details">
+                <p><span>Loại phòng</span><strong>{{ booking.room_type.name }}</strong></p>
+                <p><span>Nhận phòng</span><strong>{{ booking.check_in|date:"d/m/Y" }}</strong></p>
+                <p><span>Trả phòng</span><strong>{{ booking.check_out|date:"d/m/Y" }}</strong></p>
+                <p><span>Số khách</span><strong>{{ booking.guest_count }}</strong></p>
+                <p><span>Trạng thái</span><strong>{{ booking.get_status_display }}</strong></p>
+                <p><span>Tổng dự kiến</span><strong>{{ booking.total_price|floatformat:"0g" }} ₫</strong></p>
+            </div>
+
+            <div class="confirmation-actions">
+                <a class="button" href="{% url 'website:room_list' %}#rooms">Khám phá thêm phòng</a>
+                {% if request.user.is_authenticated %}
+                    <a class="button button-secondary" href="{% url 'accounts:bookings' %}">Đặt phòng của tôi</a>
+                {% endif %}
+            </div>
+        </article>
+    </div>
+</section>
+{% endblock %}

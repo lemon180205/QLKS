@@ -4,15 +4,18 @@
 
 {% block content %}
     <section class="hero">
-        <div class="container">
+        <div class="container hero-layout">
             <div class="hero-content">
-                <p class="eyebrow">CHÀO MỪNG BẠN ĐẾN VỚI AN NHIÊN</p>
-                <h1>Một nơi dừng chân,<br>một khoảng trời bình yên.</h1>
+                <p class="eyebrow">AN NHIÊN HOTEL · ĐIỂM ĐẾN CỦA BẠN</p>
+                <h1>Kỳ nghỉ dễ dàng,<br>từ bước đặt phòng.</h1>
                 <p class="hero-copy">
-                Khám phá các loại phòng và lựa chọn không gian
-                phù hợp cho kỳ nghỉ của bạn.
+                    Tìm không gian phù hợp, chọn ngày lưu trú và gửi yêu cầu chỉ trong vài bước.
+                    Không cần đăng nhập để đặt phòng.
                 </p>
-                <a class="button hero-link" href="#booking-search">Tìm phòng theo ngày</a>
+                <div class="hero-benefits" aria-label="Ưu điểm khi đặt phòng">
+                    <span><i aria-hidden="true">✓</i> Đặt phòng không cần tài khoản</span>
+                    <span><i aria-hidden="true">✓</i> Lễ tân xác nhận trực tiếp</span>
+                </div>
             </div>
 
             <form
@@ -21,19 +24,30 @@
                 method="get"
                 action="{% url 'website:room_list' %}"
             >
-                <div class="form-field">
-                    {{ search_form.check_in.label_tag }}
-                    {{ search_form.check_in }}
+                <div class="search-panel-heading">
+                    <div>
+                        <span class="search-tab">Khách sạn</span>
+                        <p>Chọn ngày và số khách để tìm phòng phù hợp</p>
+                    </div>
+                    <span class="search-panel-note">Đặt trực tiếp · Hỗ trợ từ lễ tân</span>
                 </div>
-                <div class="form-field">
-                    {{ search_form.check_out.label_tag }}
-                    {{ search_form.check_out }}
+                <div class="search-fields">
+                    <div class="form-field">
+                        {{ search_form.check_in.label_tag }}
+                        {{ search_form.check_in }}
+                    </div>
+                    <div class="form-field">
+                        {{ search_form.check_out.label_tag }}
+                        {{ search_form.check_out }}
+                    </div>
+                    <div class="form-field">
+                        {{ search_form.guest_count.label_tag }}
+                        {{ search_form.guest_count }}
+                    </div>
+                    <button class="button" type="submit">
+                        <span aria-hidden="true">⌕</span> Tìm phòng
+                    </button>
                 </div>
-                <div class="form-field">
-                    {{ search_form.guest_count.label_tag }}
-                    {{ search_form.guest_count }}
-                </div>
-                <button class="button" type="submit">Kiểm tra phòng trống</button>
                 {% if search_form.errors %}
                     <div class="form-errors">
                         {{ search_form.errors }}
@@ -43,17 +57,25 @@
         </div>
     </section>
 
+    <section class="benefit-strip" aria-label="Thông tin đặt phòng">
+        <div class="container benefit-grid">
+            <div><span aria-hidden="true">◎</span><p><strong>Đặt phòng đơn giản</strong><small>Không cần tạo tài khoản</small></p></div>
+            <div><span aria-hidden="true">✓</span><p><strong>Xác nhận rõ ràng</strong><small>Lễ tân kiểm tra yêu cầu của bạn</small></p></div>
+            <div><span aria-hidden="true">♡</span><p><strong>Hỗ trợ tận tâm</strong><small>Liên hệ khách sạn khi cần giúp đỡ</small></p></div>
+        </div>
+    </section>
+
     <section class="section" id="rooms">
         <div class="container">
             <h2>
                 {% if has_availability_search %}
                     Phòng còn trống theo ngày
                 {% else %}
-                    Không gian nghỉ ngơi
+                    Khám phá phòng nghỉ
                 {% endif %}
             </h2>
             <p class="muted">
-                Giá được tính theo mỗi đêm. Đặt phòng trực tuyến an toàn hoặc liên hệ lễ tân để được hỗ trợ.
+                So sánh không gian và giá phòng, sau đó gửi yêu cầu trực tuyến mà không cần tạo tài khoản.
             </p>
 
             <div class="room-grid">

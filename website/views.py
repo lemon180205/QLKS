@@ -86,7 +86,6 @@ def room_detail(request, pk):
     )
 
 
-@login_required
 def booking_request(request, pk):
     room_type = get_object_or_404(RoomType, pk=pk)
     initial = {
@@ -94,12 +93,13 @@ def booking_request(request, pk):
         for key in ("check_in", "check_out", "guest_count")
         if key in request.GET
     }
-    initial.setdefault(
-        "guest_name",
-        request.user.get_full_name() or request.user.get_username(),
-    )
-    initial.setdefault("email", request.user.email)
-    initial.setdefault("phone", request.user.phone)
+    if request.user.is_authenticated:
+        initial.setdefault(
+            "guest_name",
+            request.user.get_full_name() or request.user.get_username(),
+        )
+        initial.setdefault("email", request.user.email)
+        initial.setdefault("phone", request.user.phone)
     form = BookingRequestForm(
         request.POST if request.method == "POST" else None,
         room_type=room_type,
@@ -122,7 +122,8 @@ def booking_request(request, pk):
             else:
                 form.room_type = room_type
                 booking = form.save(commit=False)
-                booking.customer = request.user
+                if request.user.is_authenticated:
+                    booking.customer = request.user
                 booking.channel = BookingRequest.Channel.WEBSITE
                 booking.save()
         if booking:
@@ -131,34 +132,50 @@ def booking_request(request, pk):
                 "Khách sạn đã nhận yêu cầu đặt phòng",
                 (
                     f"Xin chào {booking.guest_name},\n\n"
-                    "Khách sạn đã nhận yêu cầu đặt phòng của bạn.\n"
+                    "Khách sạn đã nhận yêu cầu đặt phòng của bạn. "
+                    "Yêu cầu đang chờ lễ tân xác nhận; bạn chưa cần đăng nhập "
+                    "hoặc thanh toán trực tuyến để gửi yêu cầu.\n"
                     f"Mã đặt phòng: {booking.reference_code}\n"
                     f"Loại phòng: {booking.room_type}\n"
                     f"Thời gian: {booking.check_in} - {booking.check_out}\n"
                     f"Tổng dự kiến: {booking.total_price:,.0f} VNĐ\n\n"
-                    "Yêu cầu sẽ được xác nhận sau khi thanh toán thành công "
-                    "hoặc được lễ tân xác nhận."
+                    "Vui lòng cung cấp mã này cho lễ tân khi đến để xác nhận "
+                    "thông tin lưu trú."
                 ),
             )
             messages.success(
                 request,
-                (
-                    f"Đã tạo yêu cầu đặt phòng {booking.reference_code}. "
-                    "Bạn có thể theo dõi tại mục Đặt phòng của tôi."
-                ),
+                f"Đã nhận yêu cầu đặt phòng {booking.reference_code}.",
             )
             if not email_sent:
                 messages.warning(
                     request,
-                    "Yêu cầu đã được lưu nhưng email chưa gửi được. "
+                    "Yêu cầu đã được lưu nhưng email xác nhận chưa gửi được. "
                     "Vui lòng kiểm tra cấu hình SMTP hoặc liên hệ lễ tân.",
                 )
-            return redirect("accounts:bookings")
+            return redirect(
+                "website:booking_confirmation",
+                reference_code=booking.reference_code,
+            )
 
     return render(
         request,
         "website/booking_request.html",
         {"room_type": room_type, "form": form},
+    )
+
+
+def booking_confirmation(request, reference_code):
+    booking = get_object_or_404(
+        BookingRequest.objects.select_related("room_type"),
+        reference_code=reference_code,
+    )
+    return render(
+        request,
+        "website/booking_confirmation.html",
+        {
+            "booking": booking,
+        },
     )
 
 

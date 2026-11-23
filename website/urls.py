@@ -9,6 +9,11 @@ urlpatterns = [
     path("phong/<int:pk>/", views.room_detail, name="room_detail"),
     path("dat-phong/<int:pk>/", views.booking_request, name="booking_request"),
     path(
+        "dat-phong/xac-nhan/<uuid:reference_code>/",
+        views.booking_confirmation,
+        name="booking_confirmation",
+    ),
+    path(
         "thanh-toan/momo/<int:pk>/",
         views.initiate_momo_payment,
         name="initiate_momo_payment",
