@@ -91,6 +91,12 @@ class BookingRequestAdmin(admin.ModelAdmin):
 
         def clean(self):
             cleaned_data = super().clean()
+            existing = None
+
+            if self.instance.pk:
+                existing = BookingRequest.objects.get(
+                    pk=self.instance.pk
+                )
             room_type = cleaned_data.get("room_type")
             check_in = cleaned_data.get("check_in")
             check_out = cleaned_data.get("check_out")
@@ -205,12 +211,7 @@ class BookingRequestAdmin(admin.ModelAdmin):
 
 
 
-                        existing = None
-
-            if self.instance.pk:
-                existing = BookingRequest.objects.get(
-                    pk=self.instance.pk
-                )
+                
 
             previous_status = existing.status if existing else None
 
