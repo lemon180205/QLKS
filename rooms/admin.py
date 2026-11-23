@@ -1,3 +1,10 @@
+from django.core.exceptions import ValidationError
+
+from .operations import (
+    check_in_booking,
+    check_out_booking,
+    finish_room_cleaning,
+)
 from django import forms
 from django.contrib import admin
 from django.utils import timezone
@@ -20,6 +27,35 @@ class RoomAdmin(admin.ModelAdmin):
     list_filter = ("room_type", "floor", "status")
     search_fields = ("number",)
     list_select_related = ("room_type",)
+    actions = ("mark_cleaning_finished",)
+
+
+
+    @admin.action(
+        description="Xác nhận phòng đã dọn xong",
+        permissions=["change"],
+    )
+    def mark_cleaning_finished(self, request, queryset):
+        success_count = 0
+
+        for room_id in queryset.values_list("pk", flat=True):
+            try:
+                room = finish_room_cleaning(room_id)
+            except ValidationError as exc:
+                self.message_user(
+                    request,
+                    f"Phòng ID {room_id}: {' '.join(exc.messages)}",
+                    level="warning",
+                )
+            else:
+                success_count += 1
+
+        if success_count:
+            self.message_user(
+                request,
+                f"Đã chuyển {success_count} phòng về Sẵn sàng.",
+                level="success",
+            )
 
 
 @admin.register(Service)
@@ -55,6 +91,12 @@ class BookingRequestAdmin(admin.ModelAdmin):
 
         def clean(self):
             cleaned_data = super().clean()
+            existing = None
+
+            if self.instance.pk:
+                existing = BookingRequest.objects.get(
+                    pk=self.instance.pk
+                )
             room_type = cleaned_data.get("room_type")
             check_in = cleaned_data.get("check_in")
             check_out = cleaned_data.get("check_out")
@@ -167,6 +209,45 @@ class BookingRequestAdmin(admin.ModelAdmin):
                             "Phòng đã được gán cho đơn khác trong thời gian này.",
                         )
 
+
+
+                
+
+            previous_status = existing.status if existing else None
+
+            protected_statuses = (
+                BookingRequest.Status.CHECKED_IN,
+                BookingRequest.Status.CHECKED_OUT,
+            )
+
+            if status != previous_status:
+                if (
+                    status in protected_statuses
+                    or previous_status in protected_statuses
+                ):
+                    self.add_error(
+                        "status",
+                        "Hãy dùng thao tác Check-in hoặc Check-out "
+                        "trong danh sách đơn đặt phòng.",
+                    )
+
+            if (
+                existing
+                and previous_status in protected_statuses
+            ):
+                locked_fields = {
+                    "room_type",
+                    "assigned_room",
+                    "check_in",
+                    "check_out",
+                }
+
+                if locked_fields.intersection(self.changed_data):
+                    raise forms.ValidationError(
+                        "Không được đổi phòng hoặc lịch đặt của đơn "
+                        "đang lưu trú hay đã trả phòng bằng form này."
+                    )
+
             return cleaned_data
 
     form = BookingRequestAdminForm
@@ -202,6 +283,8 @@ class BookingRequestAdmin(admin.ModelAdmin):
         "created_at",
         "created_by",
         "channel",
+        "actual_check_in",
+        "actual_check_out",
     )
     date_hierarchy = "check_in"
     ordering = ("check_in", "room_type")
@@ -211,7 +294,7 @@ class BookingRequestAdmin(admin.ModelAdmin):
             {"fields": ("guest_name", "phone", "email", "customer")},
         ),
         (
-                "Lịch đặt phòng",
+            "Lịch đặt phòng",
                 {
                     "fields": (
                         "room_type",
@@ -222,6 +305,15 @@ class BookingRequestAdmin(admin.ModelAdmin):
                     )
                 },
             ),
+                    (
+            "Nhận và trả phòng thực tế",
+            {
+                "fields": (
+                    "actual_check_in",
+                    "actual_check_out",
+                )
+            },
+        ),
         (
             "Xử lý",
             {"fields": ("status", "payment_status", "channel", "created_by")},
@@ -238,7 +330,69 @@ class BookingRequestAdmin(admin.ModelAdmin):
             },
         ),
     )
+    actions = (
+        "check_in_selected",
+        "check_out_selected",
+    )
 
+    @admin.action(
+        description="Check-in đơn đã chọn",
+        permissions=["change"],
+    )
+    def check_in_selected(self, request, queryset):
+        if queryset.count() != 1:
+            self.message_user(
+                request,
+                "Vui lòng chọn đúng một đơn để check-in.",
+                level="warning",
+            )
+            return
+
+        try:
+            booking = check_in_booking(queryset.get().pk)
+        except ValidationError as exc:
+            self.message_user(
+                request,
+                " ".join(exc.messages),
+                level="error",
+            )
+            return
+
+        self.message_user(
+            request,
+            f"Đã check-in phòng {booking.assigned_room.number}.",
+            level="success",
+        )
+
+    @admin.action(
+        description="Check-out đơn đã chọn",
+        permissions=["change"],
+    )
+    def check_out_selected(self, request, queryset):
+        if queryset.count() != 1:
+            self.message_user(
+                request,
+                "Vui lòng chọn đúng một đơn để check-out.",
+                level="warning",
+            )
+            return
+
+        try:
+            booking = check_out_booking(queryset.get().pk)
+        except ValidationError as exc:
+            self.message_user(
+                request,
+                " ".join(exc.messages),
+                level="error",
+            )
+            return
+
+        self.message_user(
+            request,
+            f"Đã check-out phòng {booking.assigned_room.number}. "
+            "Vui lòng kiểm tra tình trạng dọn phòng.",
+            level="success",
+        )
     def save_model(self, request, obj, form, change):
         previous_status = None
         if change:
