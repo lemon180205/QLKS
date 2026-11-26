@@ -8,12 +8,15 @@ from unittest.mock import patch
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import mail
+from django.db import connection
 from django.test import TestCase
 from django.test import override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
-from rooms.models import BookingPayment, BookingRequest, RoomType
+from rooms.availability import get_available_room_count
+from rooms.models import BookingPayment, BookingRequest, Room, RoomType
 
 
 def momo_signature(data, fields):
@@ -97,6 +100,126 @@ class RoomCatalogTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Ngày trả phòng phải sau ngày nhận phòng.")
+
+    def test_search_counts_cleaning_rooms_only_for_future_arrivals(self):
+        room_type = RoomType.objects.get(name="Phòng đôi tiêu chuẩn")
+        Room.objects.create(
+            number="901",
+            room_type=room_type,
+            status=Room.Status.CLEANING,
+        )
+        Room.objects.create(
+            number="902",
+            room_type=room_type,
+            status=Room.Status.MAINTENANCE,
+        )
+        today = timezone.localdate()
+
+        today_count = get_available_room_count(
+            room_type,
+            today,
+            today + timedelta(days=1),
+        )
+        future_count = get_available_room_count(
+            room_type,
+            today + timedelta(days=3),
+            today + timedelta(days=4),
+        )
+
+        self.assertEqual(today_count, 10)
+        self.assertEqual(future_count, 11)
+
+    def test_pending_requests_reserve_only_while_payment_is_pending(self):
+        room_type = RoomType.objects.get(name="Phòng đôi tiêu chuẩn")
+        check_in = timezone.localdate() + timedelta(days=7)
+        check_out = check_in + timedelta(days=2)
+        bookings = [
+            BookingRequest.objects.create(
+                room_type=room_type,
+                guest_name=f"Pending guest {index}",
+                phone="0900000000",
+                check_in=check_in,
+                check_out=check_out,
+                guest_count=1,
+                nightly_rate=room_type.price_per_night,
+                total_price=room_type.price_per_night * 2,
+            )
+            for index in range(10)
+        ]
+        params = {
+            "check_in": check_in.isoformat(),
+            "check_out": check_out.isoformat(),
+            "guest_count": "2",
+        }
+
+        response = self.client.get(reverse("website:room_list"), params)
+        self.assertContains(response, "10 phòng còn trống")
+
+        booking = bookings[0]
+        booking.payment_status = BookingRequest.PaymentStatus.PENDING
+        booking.save(update_fields=("payment_status",))
+        BookingPayment.objects.create(
+            booking=booking,
+            amount=booking.total_price,
+            status=BookingPayment.Status.PENDING,
+        )
+        response = self.client.get(reverse("website:room_list"), params)
+        self.assertContains(response, "9 phòng còn trống")
+
+        bookings[1].status = BookingRequest.Status.CONFIRMED
+        bookings[1].save(update_fields=("status",))
+        response = self.client.get(reverse("website:room_list"), params)
+        self.assertContains(response, "8 phòng còn trống")
+
+    def test_availability_uses_maximum_simultaneous_reservations(self):
+        room_type = RoomType.objects.get(name="Phòng đôi tiêu chuẩn")
+        check_in = timezone.localdate() + timedelta(days=7)
+        middle = check_in + timedelta(days=1)
+        check_out = middle + timedelta(days=1)
+        for index, stay_start, stay_end in (
+            (1, check_in, middle),
+            (2, middle, check_out),
+        ):
+            BookingRequest.objects.create(
+                room_type=room_type,
+                guest_name=f"Confirmed guest {index}",
+                phone="0900000000",
+                check_in=stay_start,
+                check_out=stay_end,
+                guest_count=1,
+                nightly_rate=room_type.price_per_night,
+                total_price=room_type.price_per_night,
+                status=BookingRequest.Status.CONFIRMED,
+            )
+
+        available = get_available_room_count(
+            room_type,
+            check_in,
+            check_out,
+        )
+
+        self.assertEqual(available, 9)
+
+    def test_availability_search_uses_grouped_queries(self):
+        check_in = timezone.localdate() + timedelta(days=7)
+        with CaptureQueriesContext(connection) as unfiltered_queries:
+            unfiltered_response = self.client.get(reverse("website:room_list"))
+        with CaptureQueriesContext(connection) as captured:
+            response = self.client.get(
+                reverse("website:room_list"),
+                {
+                    "check_in": check_in.isoformat(),
+                    "check_out": (check_in + timedelta(days=2)).isoformat(),
+                    "guest_count": "2",
+                },
+            )
+
+        self.assertEqual(unfiltered_response.status_code, 200)
+        self.assertEqual(len(unfiltered_queries), 2)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(RoomType.objects.count(), 5)
+        self.assertEqual(Room.objects.count(), 50)
+        self.assertEqual(len(captured), 4)
 
 
 @override_settings(
@@ -202,6 +325,7 @@ class BookingRequestTests(TestCase):
                 guest_count=1,
                 nightly_rate=Decimal("650000"),
                 total_price=Decimal("1300000"),
+                status=BookingRequest.Status.CONFIRMED,
             )
 
         search_response = self.client.get(
@@ -381,6 +505,34 @@ class MomoPaymentTests(TestCase):
             amount=self.booking.total_price,
         )
 
+    def test_payment_is_rejected_when_pending_booking_has_no_inventory(self):
+        self.client.force_login(self.customer)
+        for index in range(self.room_type.rooms.count()):
+            BookingRequest.objects.create(
+                room_type=self.room_type,
+                guest_name=f"Reserved guest {index}",
+                email=f"reserved{index}@example.com",
+                phone="0900000000",
+                check_in=self.booking.check_in,
+                check_out=self.booking.check_out,
+                guest_count=2,
+                nightly_rate=self.room_type.price_per_night,
+                total_price=self.booking.total_price,
+                status=BookingRequest.Status.CONFIRMED,
+            )
+
+        response = self.client.post(
+            reverse("website:initiate_momo_payment", args=[self.booking.pk]),
+        )
+
+        self.assertRedirects(response, reverse("accounts:bookings"))
+        self.assertFalse(self.booking.payment_attempts.exists())
+        self.booking.refresh_from_db()
+        self.assertEqual(
+            self.booking.payment_status,
+            BookingRequest.PaymentStatus.UNPAID,
+        )
+
     def test_payment_request_uses_signed_gateway_payload(self):
         from .payments import create_momo_payment
 
@@ -499,4 +651,26 @@ class MomoPaymentTests(TestCase):
         self.assertEqual(
             self.booking.payment_status,
             BookingRequest.PaymentStatus.UNPAID,
+        )
+
+    def test_failed_momo_ipn_records_failure_time(self):
+        self.set_payment()
+        self.booking.payment_status = BookingRequest.PaymentStatus.PENDING
+        self.booking.save(update_fields=("payment_status",))
+        payload = self.notification_payload(resultCode=1006)
+
+        response = self.client.post(
+            reverse("website:momo_ipn"),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+
+        self.payment.refresh_from_db()
+        self.booking.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.payment.status, BookingPayment.Status.FAILED)
+        self.assertIsNotNone(self.payment.failed_at)
+        self.assertEqual(
+            self.booking.payment_status,
+            BookingRequest.PaymentStatus.FAILED,
         )

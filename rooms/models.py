@@ -118,6 +118,54 @@ class Service(models.Model):
         return self.name
 
 
+class BookingServiceUsage(models.Model):
+    booking = models.ForeignKey(
+        "BookingRequest",
+        on_delete=models.PROTECT,
+        related_name="service_usages",
+        verbose_name="Yêu cầu đặt phòng",
+    )
+    service = models.ForeignKey(
+        Service,
+        on_delete=models.PROTECT,
+        related_name="booking_usages",
+        verbose_name="Dịch vụ",
+    )
+    quantity = models.PositiveIntegerField(
+        "Số lượng",
+        validators=[MinValueValidator(1)],
+    )
+    unit_price = models.DecimalField(
+        "Đơn giá tại thời điểm sử dụng (VNĐ)",
+        max_digits=12,
+        decimal_places=0,
+        validators=[MinValueValidator(0)],
+        editable=False,
+    )
+    used_at = models.DateTimeField(
+        "Thời điểm sử dụng",
+        auto_now_add=True,
+    )
+
+    class Meta:
+        verbose_name = "Dịch vụ phát sinh"
+        verbose_name_plural = "Dịch vụ phát sinh"
+        ordering = ["used_at", "pk"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(quantity__gt=0),
+                name="booking_service_quantity_positive",
+            ),
+            models.CheckConstraint(
+                condition=Q(unit_price__gte=0),
+                name="booking_service_unit_price_nonnegative",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.service} x {self.quantity} - {self.booking}"
+
+
 class BookingRequest(models.Model):
     class Status(models.TextChoices):
         PENDING = "pending", "Chờ xác nhận"
@@ -283,6 +331,11 @@ class BookingPayment(models.Model):
     )
     created_at = models.DateTimeField("Ngày tạo", auto_now_add=True)
     paid_at = models.DateTimeField("Ngày thanh toán", null=True, blank=True)
+    failed_at = models.DateTimeField(
+        "Thời điểm thanh toán thất bại",
+        null=True,
+        blank=True,
+    )
 
     class Meta:
         verbose_name = "Giao dịch thanh toán"
@@ -297,3 +350,73 @@ class BookingPayment(models.Model):
 
     def __str__(self):
         return f"{self.order_id} - {self.get_status_display()}"
+
+
+class BookingCounterPayment(models.Model):
+    class Method(models.TextChoices):
+        CASH = "cash", "Tiền mặt"
+        BANK_TRANSFER = "bank_transfer", "Chuyển khoản"
+        CARD = "card", "Thẻ"
+
+    booking = models.OneToOneField(
+        BookingRequest,
+        on_delete=models.PROTECT,
+        related_name="counter_payment",
+        verbose_name="Yêu cầu đặt phòng",
+    )
+    amount = models.DecimalField(
+        "Số tiền đã thu (VNĐ)",
+        max_digits=24,
+        decimal_places=0,
+    )
+    room_amount = models.DecimalField(
+        "Tiền phòng thu tại quầy (VNĐ)",
+        max_digits=24,
+        decimal_places=0,
+        validators=[MinValueValidator(0)],
+    )
+    service_amount = models.DecimalField(
+        "Tiền dịch vụ thu tại quầy (VNĐ)",
+        max_digits=24,
+        decimal_places=0,
+        validators=[MinValueValidator(0)],
+    )
+    method = models.CharField(
+        "Phương thức thu",
+        max_length=20,
+        choices=Method.choices,
+    )
+    received_at = models.DateTimeField(
+        "Thời điểm thu",
+        auto_now_add=True,
+    )
+    received_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="hotel_counter_payments",
+        null=True,
+        blank=True,
+        verbose_name="Nhân viên thu",
+    )
+
+    class Meta:
+        verbose_name = "Khoản thu tại quầy"
+        verbose_name_plural = "Khoản thu tại quầy"
+        ordering = ["-received_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(amount__gt=0),
+                name="booking_counter_payment_amount_positive",
+            ),
+            models.CheckConstraint(
+                condition=Q(room_amount__gte=0) & Q(service_amount__gte=0),
+                name="booking_counter_payment_parts_nonnegative",
+            ),
+            models.CheckConstraint(
+                condition=Q(amount=F("room_amount") + F("service_amount")),
+                name="booking_counter_payment_parts_match_amount",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.booking} - {self.amount:,.0f} VNĐ"

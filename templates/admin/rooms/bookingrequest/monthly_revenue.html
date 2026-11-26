@@ -1,0 +1,114 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div id="content-main">
+  <form method="get" class="module">
+    {{ form.as_p }}
+    <div class="submit-row">
+      <input type="submit" class="default" value="Xem báo cáo">
+    </div>
+  </form>
+
+  {% if report %}
+    <h2>Doanh thu tháng {{ report.month }}/{{ report.year }}</h2>
+    <p>
+      Báo cáo tính theo thời điểm tiền thực nhận trong múi giờ
+      Asia/Ho_Chi_Minh, không theo ngày đặt hoặc ngày lưu trú.
+      Giao dịch MoMo chỉ tính khi đã thành công; giao dịch thất bại và đang xử lý
+      không được tính vào doanh thu.
+      Với giao dịch thất bại cũ chưa có thời điểm thất bại, hệ thống dùng thời
+      điểm tạo giao dịch làm mốc đối soát.
+    </p>
+
+    <table>
+      <tbody>
+        <tr>
+          <th scope="row">Thu tiền phòng</th>
+          <td>{{ report.room_revenue|floatformat:0 }} VNĐ</td>
+        </tr>
+        <tr>
+          <th scope="row">Thu tiền dịch vụ</th>
+          <td>{{ report.service_revenue|floatformat:0 }} VNĐ</td>
+        </tr>
+        <tr>
+          <th scope="row">Tổng doanh thu thực thu</th>
+          <td><strong>{{ report.total_revenue|floatformat:0 }} VNĐ</strong></td>
+        </tr>
+        <tr>
+          <th scope="row">Trong đó MoMo</th>
+          <td>{{ report.momo_revenue|floatformat:0 }} VNĐ</td>
+        </tr>
+        <tr>
+          <th scope="row">Trong đó thu tại quầy</th>
+          <td>{{ report.counter_revenue|floatformat:0 }} VNĐ</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Đơn còn dư nợ hiện tại</h2>
+    <p>Dư nợ hiện tại chỉ để đối soát, không cộng vào doanh thu thực thu.</p>
+    {% if report.unpaid_bookings %}
+      <table>
+        <thead>
+          <tr>
+            <th>Mã đặt phòng</th>
+            <th>Khách</th>
+            <th>Trạng thái</th>
+            <th>Còn phải thu</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in report.unpaid_bookings %}
+            <tr>
+              <td>
+                <a href="{% url 'admin:rooms_bookingrequest_change' item.booking.pk %}">
+                  {{ item.booking.reference_code }}
+                </a>
+              </td>
+              <td>{{ item.booking.guest_name }}</td>
+              <td>{{ item.booking.get_status_display }}</td>
+              <td>{{ item.amount_due|floatformat:0 }} VNĐ</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>Hiện không có đơn còn dư nợ.</p>
+    {% endif %}
+
+    <h2>Giao dịch MoMo thất bại trong tháng</h2>
+    {% if report.failed_transactions %}
+      <table>
+        <thead>
+          <tr>
+            <th>Mã đặt phòng</th>
+            <th>Khách</th>
+            <th>Số tiền</th>
+            <th>Thời điểm thất bại</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for payment in report.failed_transactions %}
+            <tr>
+              <td>
+                <a href="{% url 'admin:rooms_bookingrequest_change' payment.booking.pk %}">
+                  {{ payment.booking.reference_code }}
+                </a>
+              </td>
+              <td>{{ payment.booking.guest_name }}</td>
+              <td>{{ payment.amount|floatformat:0 }} VNĐ</td>
+              <td>{{ payment.failed_at }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>Không có giao dịch MoMo thất bại trong tháng này.</p>
+    {% endif %}
+  {% endif %}
+
+  <p>
+    <a href="{{ change_list_url }}">Quay lại yêu cầu đặt phòng</a>
+  </p>
+</div>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div id="content-main">
+  <h1>Chốt tiền và trả phòng</h1>
+  <p>
+    Khách: {{ booking.guest_name }} |
+    Mã đặt phòng: {{ booking.reference_code }} |
+    Phòng: {{ booking.assigned_room }}
+  </p>
+
+  <table>
+    <tbody>
+      <tr>
+        <th scope="row">Tiền phòng</th>
+        <td>{{ summary.room_total|floatformat:0 }} VNĐ</td>
+      </tr>
+      <tr>
+        <th scope="row">Tiền dịch vụ</th>
+        <td>{{ summary.service_total|floatformat:0 }} VNĐ</td>
+      </tr>
+      <tr>
+        <th scope="row">Đã thanh toán qua MoMo</th>
+        <td>{{ summary.momo_paid|floatformat:0 }} VNĐ</td>
+      </tr>
+      <tr>
+        <th scope="row">Tổng hóa đơn</th>
+        <td>{{ summary.total|floatformat:0 }} VNĐ</td>
+      </tr>
+      <tr>
+        <th scope="row">Còn phải thu tại quầy</th>
+        <td><strong>{{ summary.amount_due|floatformat:0 }} VNĐ</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  {% if summary.has_pending_momo %}
+    <p class="errornote">
+      Đơn đang có giao dịch MoMo xử lý. Hãy đợi giao dịch hoàn tất trước khi chốt tiền.
+    </p>
+  {% endif %}
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {{ form.expected_amount }}
+    {{ form.expected_amount.errors }}
+    {% if summary.amount_due %}
+      <div class="form-row">
+        {{ form.payment_method.errors }}
+        {{ form.payment_method.label_tag }}
+        {{ form.payment_method }}
+      </div>
+    {% endif %}
+    {{ form.non_field_errors }}
+    {% if can_confirm %}
+      <div class="submit-row">
+        <input
+          type="submit"
+          class="default"
+          value="{% if summary.amount_due %}Xác nhận thu và check-out{% else %}Xác nhận check-out{% endif %}"
+        >
+      </div>
+    {% endif %}
+  </form>
+
+  <p><a href="{{ change_url }}">Quay lại đơn đặt phòng</a></p>
+</div>
+{% endblock %}

@@ -1,17 +1,151 @@
-from django.core.exceptions import ValidationError
+from django import forms
+from django.contrib import admin
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.http import Http404, HttpResponseRedirect
+from django.template.response import TemplateResponse
+from django.urls import path, reverse
+from django.utils import timezone
 
 from .operations import (
     check_in_booking,
     check_out_booking,
     finish_room_cleaning,
+    get_checkout_summary,
 )
-from django import forms
-from django.contrib import admin
-from django.utils import timezone
+from .reporting import build_monthly_revenue_report
 
-from .availability import ACTIVE_BOOKING_STATUSES
-from .models import BookingPayment, BookingRequest, Room, RoomType, Service
+from .availability import (
+    RESERVING_BOOKING_STATUSES,
+    get_available_room_count,
+    get_reserving_bookings,
+)
+from .models import (
+    BookingCounterPayment,
+    BookingPayment,
+    BookingRequest,
+    BookingServiceUsage,
+    Room,
+    RoomType,
+    Service,
+)
 from website.notifications import send_booking_email
+
+
+class BookingCheckoutForm(forms.Form):
+    expected_amount = forms.DecimalField(
+        min_value=0,
+        decimal_places=0,
+        widget=forms.HiddenInput,
+    )
+    payment_method = forms.ChoiceField(
+        label="Phương thức thu tại quầy",
+        choices=[
+            ("", "---------"),
+            *BookingCounterPayment.Method.choices,
+        ],
+        required=False,
+    )
+
+    def __init__(self, *args, amount_due, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.amount_due = amount_due
+        self.fields["expected_amount"].initial = amount_due
+        self.fields["payment_method"].required = amount_due > 0
+
+    def clean_expected_amount(self):
+        expected_amount = self.cleaned_data["expected_amount"]
+        if expected_amount != self.amount_due:
+            raise forms.ValidationError(
+                "Số tiền cần thu đã thay đổi. Vui lòng kiểm tra lại hóa đơn.",
+                code="amount_changed",
+            )
+        return expected_amount
+
+
+class MonthlyRevenueForm(forms.Form):
+    month = forms.IntegerField(
+        label="Tháng",
+        min_value=1,
+        max_value=12,
+    )
+    year = forms.IntegerField(
+        label="Năm",
+        min_value=2000,
+        max_value=9998,
+    )
+
+
+class BookingServiceUsageForm(forms.ModelForm):
+    class Meta:
+        model = BookingServiceUsage
+        fields = ("service", "quantity")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.fields["service"].queryset = Service.objects.filter(
+                pk=self.instance.service_id
+            )
+            self.fields["service"].disabled = True
+        else:
+            self.fields["service"].queryset = Service.objects.filter(
+                is_available=True
+            )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        booking = self.instance.booking
+
+        if booking.status != BookingRequest.Status.CHECKED_IN and (
+            self.instance._state.adding or self.has_changed()
+        ):
+            raise forms.ValidationError(
+                "Chỉ ghi nhận dịch vụ khi khách đang lưu trú."
+            )
+
+        service = cleaned_data.get("service")
+        if self.instance._state.adding and service and not service.is_available:
+            self.add_error("service", "Dịch vụ hiện không còn phục vụ.")
+
+        return cleaned_data
+
+    def save(self, commit=True):
+        usage = super().save(commit=False)
+        if usage._state.adding:
+            usage.unit_price = usage.service.price
+
+        if commit:
+            usage.save()
+            self.save_m2m()
+        return usage
+
+
+class BookingServiceUsageInline(admin.TabularInline):
+    model = BookingServiceUsage
+    form = BookingServiceUsageForm
+    fields = ("service", "quantity", "unit_price", "used_at")
+    readonly_fields = ("unit_price", "used_at")
+    extra = 0
+    can_delete = False
+
+    def has_view_permission(self, request, obj=None):
+        return (
+            request.user.has_perm("rooms.view_bookingrequest")
+            or request.user.has_perm("rooms.change_bookingrequest")
+        )
+
+    def has_add_permission(self, request, obj=None):
+        return bool(
+            obj
+            and obj.status == BookingRequest.Status.CHECKED_IN
+            and request.user.has_perm("rooms.change_bookingrequest")
+        )
+
+    def has_change_permission(self, request, obj=None):
+        return self.has_add_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(RoomType)
@@ -102,6 +236,11 @@ class BookingRequestAdmin(admin.ModelAdmin):
             check_out = cleaned_data.get("check_out")
             guest_count = cleaned_data.get("guest_count")
             status = cleaned_data.get("status")
+            payment_status = cleaned_data.get("payment_status")
+            reserves_inventory = status in RESERVING_BOOKING_STATUSES or (
+                status == BookingRequest.Status.PENDING
+                and payment_status == BookingRequest.PaymentStatus.PENDING
+            )
 
             if (
                 check_in
@@ -152,20 +291,13 @@ class BookingRequestAdmin(admin.ModelAdmin):
                 and check_out > check_in
                 and not (guest_count and guest_count > room_type.capacity)
             ):
-                ready_rooms = room_type.rooms.filter(
-                    status=Room.Status.READY
-                ).count()
-                overlapping_bookings = BookingRequest.objects.filter(
-                    room_type=room_type,
-                    status__in=ACTIVE_BOOKING_STATUSES,
-                    check_in__lt=check_out,
-                    check_out__gt=check_in,
+                available_count = get_available_room_count(
+                    room_type,
+                    check_in,
+                    check_out,
+                    exclude_booking_id=self.instance.pk,
                 )
-                if self.instance.pk:
-                    overlapping_bookings = overlapping_bookings.exclude(
-                        pk=self.instance.pk
-                    )
-                if overlapping_bookings.count() >= ready_rooms:
+                if available_count < 1:
                     raise forms.ValidationError(
                         "Không còn phòng trống cho loại phòng và thời gian này."
                     )
@@ -183,7 +315,7 @@ class BookingRequestAdmin(admin.ModelAdmin):
 
                 if (
                     assigned_room.status == Room.Status.MAINTENANCE
-                    and status in ACTIVE_BOOKING_STATUSES
+                    and reserves_inventory
                 ):
                     self.add_error(
                         "assigned_room",
@@ -194,13 +326,13 @@ class BookingRequestAdmin(admin.ModelAdmin):
                     check_in
                     and check_out
                     and check_out > check_in
-                    and status in ACTIVE_BOOKING_STATUSES
+                    and reserves_inventory
                 ):
-                    conflicts = BookingRequest.objects.filter(
+                    conflicts = get_reserving_bookings(
+                        check_in,
+                        check_out,
+                    ).filter(
                         assigned_room=assigned_room,
-                        status__in=ACTIVE_BOOKING_STATUSES,
-                        check_in__lt=check_out,
-                        check_out__gt=check_in,
                     ).exclude(pk=self.instance.pk)
 
                     if conflicts.exists():
@@ -251,6 +383,8 @@ class BookingRequestAdmin(admin.ModelAdmin):
             return cleaned_data
 
     form = BookingRequestAdminForm
+    inlines = (BookingServiceUsageInline,)
+    change_list_template = "admin/rooms/bookingrequest/change_list.html"
     list_display = (
         "reference_code",
         "guest_name",
@@ -335,6 +469,144 @@ class BookingRequestAdmin(admin.ModelAdmin):
         "check_out_selected",
     )
 
+    def get_inlines(self, request, obj):
+        if obj is None:
+            return ()
+        return super().get_inlines(request, obj)
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "monthly-revenue/",
+                self.admin_site.admin_view(self.monthly_revenue_view),
+                name="rooms_bookingrequest_monthly_revenue",
+            ),
+            path(
+                "<path:object_id>/checkout/",
+                self.admin_site.admin_view(self.checkout_view),
+                name="rooms_bookingrequest_checkout",
+            ),
+        ]
+        return custom_urls + urls
+
+    def monthly_revenue_view(self, request):
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+
+        today = timezone.localdate()
+        initial = {"month": today.month, "year": today.year}
+        form = MonthlyRevenueForm(request.GET or None, initial=initial)
+        report = None
+        if not request.GET:
+            report = build_monthly_revenue_report(**initial)
+        elif form.is_valid():
+            report = build_monthly_revenue_report(
+                year=form.cleaned_data["year"],
+                month=form.cleaned_data["month"],
+            )
+
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "Báo cáo doanh thu theo tháng",
+            "opts": self.model._meta,
+            "form": form,
+            "report": report,
+            "change_list_url": reverse(
+                "admin:rooms_bookingrequest_changelist"
+            ),
+        }
+        return TemplateResponse(
+            request,
+            "admin/rooms/bookingrequest/monthly_revenue.html",
+            context,
+        )
+
+    def checkout_view(self, request, object_id):
+        booking = self.get_object(request, object_id)
+        if booking is None:
+            raise Http404
+        if not self.has_change_permission(request, booking):
+            raise PermissionDenied
+
+        change_url = reverse(
+            "admin:rooms_bookingrequest_change",
+            args=(booking.pk,),
+        )
+        if booking.status != BookingRequest.Status.CHECKED_IN:
+            self.message_user(
+                request,
+                "Chỉ chốt tiền cho đơn đang lưu trú.",
+                level="warning",
+            )
+            return HttpResponseRedirect(change_url)
+
+        summary = get_checkout_summary(booking)
+        if request.method == "POST":
+            form = BookingCheckoutForm(
+                request.POST,
+                amount_due=summary["amount_due"],
+            )
+            if form.is_valid():
+                try:
+                    check_out_booking(
+                        booking.pk,
+                        payment_method=form.cleaned_data["payment_method"],
+                        expected_amount=form.cleaned_data["expected_amount"],
+                        received_by=request.user,
+                    )
+                except ValidationError as exc:
+                    self.message_user(
+                        request,
+                        " ".join(exc.messages),
+                        level="error",
+                    )
+                    booking.refresh_from_db()
+                    if booking.status != BookingRequest.Status.CHECKED_IN:
+                        return HttpResponseRedirect(change_url)
+                    return HttpResponseRedirect(request.path)
+
+                if summary["amount_due"]:
+                    self.message_user(
+                        request,
+                        f"Đã thu {summary['amount_due']:,.0f} VNĐ và check-out "
+                        f"phòng {booking.assigned_room.number}.",
+                        level="success",
+                    )
+                else:
+                    self.message_user(
+                        request,
+                        f"Đã check-out phòng {booking.assigned_room.number}; "
+                        "đơn đã được thanh toán đủ.",
+                        level="success",
+                    )
+                return HttpResponseRedirect(change_url)
+            if form.has_error("expected_amount", "amount_changed"):
+                self.message_user(
+                    request,
+                    "Số tiền cần thu đã thay đổi. Hãy kiểm tra hóa đơn mới.",
+                    level="warning",
+                )
+                return HttpResponseRedirect(request.path)
+        else:
+            form = BookingCheckoutForm(amount_due=summary["amount_due"])
+
+        context = {
+            **self.admin_site.each_context(request),
+            "title": f"Chốt tiền - {booking}",
+            "opts": self.model._meta,
+            "booking": booking,
+            "summary": summary,
+            "form": form,
+            "change_url": change_url,
+            "can_confirm": not summary["has_pending_momo"],
+        }
+        return TemplateResponse(
+            request,
+            "admin/rooms/bookingrequest/checkout.html",
+            context,
+        )
+
     @admin.action(
         description="Check-in đơn đã chọn",
         permissions=["change"],
@@ -365,7 +637,7 @@ class BookingRequestAdmin(admin.ModelAdmin):
         )
 
     @admin.action(
-        description="Check-out đơn đã chọn",
+        description="Chốt tiền và check-out đơn đã chọn",
         permissions=["change"],
     )
     def check_out_selected(self, request, queryset):
@@ -377,22 +649,13 @@ class BookingRequestAdmin(admin.ModelAdmin):
             )
             return
 
-        try:
-            booking = check_out_booking(queryset.get().pk)
-        except ValidationError as exc:
-            self.message_user(
-                request,
-                " ".join(exc.messages),
-                level="error",
+        return HttpResponseRedirect(
+            reverse(
+                "admin:rooms_bookingrequest_checkout",
+                args=(queryset.get().pk,),
             )
-            return
-
-        self.message_user(
-            request,
-            f"Đã check-out phòng {booking.assigned_room.number}. "
-            "Vui lòng kiểm tra tình trạng dọn phòng.",
-            level="success",
         )
+
     def save_model(self, request, obj, form, change):
         previous_status = None
         if change:
@@ -433,6 +696,24 @@ class BookingRequestAdmin(admin.ModelAdmin):
                 ),
             )
 
+    def save_formset(self, request, form, formset, change):
+        if formset.model is BookingServiceUsage and any(
+            inline_form.has_changed() for inline_form in formset.forms
+        ):
+            booking = BookingRequest.objects.select_for_update().get(
+                pk=form.instance.pk
+            )
+            if booking.status != BookingRequest.Status.CHECKED_IN:
+                self.message_user(
+                    request,
+                    "Đơn đã không còn ở trạng thái lưu trú; "
+                    "không thể ghi hoặc sửa dịch vụ.",
+                    level="error",
+                )
+                return
+
+        super().save_formset(request, form, formset, change)
+
 
 @admin.register(BookingPayment)
 class BookingPaymentAdmin(admin.ModelAdmin):
@@ -460,6 +741,37 @@ class BookingPaymentAdmin(admin.ModelAdmin):
     date_hierarchy = "created_at"
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(BookingCounterPayment)
+class BookingCounterPaymentAdmin(admin.ModelAdmin):
+    list_display = (
+        "booking",
+        "amount",
+        "method",
+        "received_at",
+        "received_by",
+    )
+    list_filter = ("method", "received_at")
+    search_fields = (
+        "booking__reference_code",
+        "booking__guest_name",
+        "booking__phone",
+    )
+    list_select_related = ("booking", "received_by")
+    readonly_fields = tuple(
+        field.name for field in BookingCounterPayment._meta.fields
+    )
+    date_hierarchy = "received_at"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
     def has_delete_permission(self, request, obj=None):

@@ -1,0 +1,10 @@
+{% extends "admin/change_list.html" %}
+
+{% block object-tools-items %}
+  <li>
+    <a href="{% url 'admin:rooms_bookingrequest_monthly_revenue' %}">
+      Báo cáo doanh thu theo tháng
+    </a>
+  </li>
+  {{ block.super }}
+{% endblock %}

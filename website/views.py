@@ -13,7 +13,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from rooms.availability import get_available_room_count
+from rooms.availability import get_available_room_count, get_available_room_counts
 from rooms.models import BookingPayment, BookingRequest, RoomType, Service
 
 from .forms import BookingRequestForm, RoomSearchForm
@@ -33,6 +33,7 @@ def room_list(request):
     room_types = RoomType.objects.annotate(room_count=Count("rooms"))
     available_counts = {}
     has_availability_search = False
+    room_cards = None
 
     if search_form.is_valid():
         check_in = search_form.cleaned_data.get("check_in")
@@ -42,26 +43,20 @@ def room_list(request):
             room_types = room_types.filter(capacity__gte=guest_count)
         if check_in and check_out:
             has_availability_search = True
-            available_counts = {
-                room_type.pk: get_available_room_count(
-                    room_type,
-                    check_in,
-                    check_out,
-                )
-                for room_type in room_types
-            }
-            room_types = room_types.filter(
-                pk__in=[
-                    room_type_id
-                    for room_type_id, available_count in available_counts.items()
-                    if available_count
-                ]
+            room_type_list = list(room_types)
+            available_counts = get_available_room_counts(
+                room_type_list,
+                check_in,
+                check_out,
             )
+            room_cards = [
+                (room_type, available_counts[room_type.pk])
+                for room_type in room_type_list
+                if available_counts[room_type.pk]
+            ]
 
-    room_cards = [
-        (room_type, available_counts.get(room_type.pk))
-        for room_type in room_types
-    ]
+    if room_cards is None:
+        room_cards = [(room_type, None) for room_type in room_types]
 
     return render(
         request,
@@ -210,6 +205,21 @@ def initiate_momo_payment(request, pk):
             )
             return redirect("accounts:bookings")
 
+        if booking.status == BookingRequest.Status.PENDING:
+            RoomType.objects.select_for_update().get(pk=booking.room_type_id)
+            if get_available_room_count(
+                booking.room_type,
+                booking.check_in,
+                booking.check_out,
+                exclude_booking_id=booking.pk,
+            ) < 1:
+                messages.error(
+                    request,
+                    "Không còn phòng trống cho thời gian này. Vui lòng liên hệ "
+                    "khách sạn để được hỗ trợ.",
+                )
+                return redirect("accounts:bookings")
+
         payment = BookingPayment.objects.create(
             booking=booking,
             amount=booking.total_price,
@@ -223,7 +233,8 @@ def initiate_momo_payment(request, pk):
         with transaction.atomic():
             payment = BookingPayment.objects.select_for_update().get(pk=payment.pk)
             payment.status = BookingPayment.Status.FAILED
-            payment.save(update_fields=("status",))
+            payment.failed_at = timezone.now()
+            payment.save(update_fields=("status", "failed_at"))
             booking = BookingRequest.objects.select_for_update().get(
                 pk=payment.booking_id
             )
@@ -343,11 +354,18 @@ def momo_ipn(request):
                 )
             send_payment_email = True
         else:
-            payment.status = BookingPayment.Status.FAILED
+            if payment.status != BookingPayment.Status.FAILED:
+                payment.status = BookingPayment.Status.FAILED
+                payment.failed_at = timezone.now()
             if booking.payment_status == BookingRequest.PaymentStatus.PENDING:
                 booking.payment_status = BookingRequest.PaymentStatus.FAILED
         payment.save(
-            update_fields=("status", "transaction_id", "paid_at")
+            update_fields=(
+                "status",
+                "transaction_id",
+                "paid_at",
+                "failed_at",
+            )
         )
         booking.save(update_fields=("payment_status", "status"))
 
