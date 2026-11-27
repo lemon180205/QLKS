@@ -1,0 +1,113 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}
+    {{ block.super }}
+
+    <link
+        rel="stylesheet"
+        href="{% static 'rooms/css/room_map.css' %}"
+    >
+{% endblock %}
+
+{% block breadcrumbs %}
+    <div class="breadcrumbs">
+        <a href="{% url 'admin:index' %}">Trang chủ</a>
+        ›
+        <a href="{% url 'admin:rooms_room_changelist' %}">
+            Phòng
+        </a>
+        › Sơ đồ phòng
+    </div>
+{% endblock %}
+
+{% block content %}
+<div class="room-map">
+    <header class="map-heading">
+        <div>
+            <h1>Sơ đồ phòng</h1>
+
+            <p>
+                Hôm nay: {{ today|date:"d/m/Y" }}
+                · Tổng cộng {{ total_rooms }} phòng
+            </p>
+        </div>
+
+        <div class="map-actions">
+            <a href="{% url 'admin:rooms_room_map' %}">
+                Làm mới
+            </a>
+
+            <a href="{% url 'admin:rooms_room_changelist' %}">
+                Danh sách phòng
+            </a>
+        </div>
+    </header>
+
+    <div class="map-legend" aria-label="Chú thích màu phòng">
+        {% for item in legend %}
+            <div class="legend-item">
+                <span
+                    class="legend-dot state-{{ item.state }}"
+                    aria-hidden="true"
+                ></span>
+
+                <span>
+                    {{ item.label }}
+                    <strong>{{ item.count }}</strong>
+                </span>
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="map-notice">
+        Có <strong>{{ unassigned_count }}</strong> đơn đang giữ chỗ
+        hoặc đang lưu trú liên quan đến hôm nay nhưng chưa gán phòng.
+        Các đơn này chưa được tô vào ô phòng cụ thể.
+    </div>
+
+    <p class="map-help">
+        Bấm vào ô để xem chi tiết phòng.
+        Sơ đồ phản ánh tình trạng hôm nay, không thay thế lịch đặt
+        phòng cho ngày tương lai.
+    </p>
+
+    {% for floor, cards in floors.items %}
+        <section class="floor-section">
+            <h2>Tầng {{ floor }}</h2>
+
+            <div class="floor-grid">
+                {% for card in cards %}
+                    <a
+                        class="room-tile state-{{ card.state }}"
+                        href="{% url 'admin:rooms_room_change' card.room.pk %}"
+                        aria-label="Phòng {{ card.room.number }}, {{ card.label }}"
+                    >
+                        <span class="tile-number">
+                            {{ card.room.number }}
+                        </span>
+
+                        <span class="tile-type">
+                            {{ card.room.room_type.name }}
+                        </span>
+
+                        <span class="tile-status">
+                            {{ card.label }}
+                        </span>
+
+                        {% if card.warning %}
+                            <span class="tile-warning">
+                                ⚠ {{ card.warning }}
+                            </span>
+                        {% endif %}
+                    </a>
+                {% endfor %}
+            </div>
+        </section>
+    {% empty %}
+        <div class="map-notice">
+            Chưa có phòng. Hãy thêm phòng trong trang quản lý.
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}

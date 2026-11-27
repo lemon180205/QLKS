@@ -19,7 +19,7 @@
                 <article class="booking-card">
                     <div class="booking-card-header">
                         <div>
-                            <p class="eyebrow">MÃ ĐẶT PHÒNG {{ booking.reference_code }}</p>
+                            <p class="eyebrow">MÃ ĐẶT PHÒNG {{ booking.display_code }}</p>
                             <h2>{{ booking.room_type.name }}</h2>
                         </div>
                         <span class="status-pill status-{{ booking.status }}">
@@ -34,6 +34,14 @@
                         <p><span>Tổng tiền</span><strong>{{ booking.total_price|floatformat:"0g" }} ₫</strong></p>
                     </div>
                     <div class="booking-actions">
+                        {% if booking.status == "pending" or booking.status == "confirmed" %}
+                            <a
+                                class="button button-secondary"
+                                href="{% url 'website:payment_demo' booking.pk %}"
+                            >
+                                Thanh toán thử — Demo
+                            </a>
+                        {% endif %}
                         {% with active_payment=booking.payment_attempts.all.0 %}
                             {% if booking.payment_status == "paid" %}
                                 <span class="muted">Thanh toán đã được ghi nhận.</span>

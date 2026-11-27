@@ -1,0 +1,291 @@
+{% extends "website/base.html" %}
+{% load static %}
+
+{% block title %}
+    Thanh toán thử nghiệm | An Nhiên
+{% endblock %}
+
+{% block extra_css %}
+    <link
+        rel="stylesheet"
+        href="{% static 'website/css/payment_demo.css' %}"
+    >
+{% endblock %}
+
+{% block content %}
+<section class="demo-page container">
+    <p class="demo-banner">
+        DEMO — Không thu tiền thật,
+        không kết nối MoMo/ZaloPay/Visa.
+    </p>
+
+    <div class="demo-layout">
+        <div class="demo-panel">
+            {% if error %}
+                <p class="demo-error" role="alert">
+                    {{ error }}
+                </p>
+            {% endif %}
+
+            {% if not attempt %}
+                <p class="demo-step">BƯỚC THANH TOÁN THỬ</p>
+
+                <h1>Chọn hình thức thanh toán</h1>
+
+                <p class="demo-muted">
+                    Chọn phương thức để xem luồng thanh toán mô phỏng.
+                </p>
+
+                <form method="post">
+                    {% csrf_token %}
+
+                    <input
+                        type="hidden"
+                        name="action"
+                        value="start"
+                    >
+
+                    <fieldset class="demo-options">
+                        <legend>Phương thức mô phỏng</legend>
+
+                        {{ form.method.errors }}
+
+                        {% for radio in form.method %}
+                            <label
+                                class="demo-option"
+                                for="{{ radio.id_for_label }}"
+                            >
+                                {{ radio.tag }}
+
+                                <strong>
+                                    {{ radio.choice_label }}
+                                </strong>
+
+                                <span class="demo-badge">
+                                    DEMO
+                                </span>
+                            </label>
+                        {% endfor %}
+                    </fieldset>
+
+                    <button
+                        class="demo-button"
+                        type="submit"
+                    >
+                        Tiếp tục thanh toán thử →
+                    </button>
+                </form>
+
+            {% elif attempt.status == "pending" %}
+                <p class="demo-step">
+                    CỔNG THANH TOÁN MÔ PHỎNG
+                </p>
+
+                <h1>{{ attempt.method_label }}</h1>
+
+                <p class="demo-muted">
+                    Không quét QR, không nhập số thẻ
+                    hoặc CVV thật.
+                </p>
+
+                <div class="demo-total">
+                    {{ attempt.amount|floatformat:"0g" }} ₫
+                </div>
+
+                <p>
+                    Phiên demo còn
+                    <strong
+                        id="demo-countdown"
+                        data-seconds="{{ remaining_seconds }}"
+                    ></strong>.
+                </p>
+
+                <p class="demo-muted">
+                    Đây là hạn phiên thử,
+                    không phải thời hạn giữ phòng.
+                </p>
+
+                <form method="post">
+                    {% csrf_token %}
+
+                    <input
+                        type="hidden"
+                        name="action"
+                        value="simulate"
+                    >
+
+                    <input
+                        type="hidden"
+                        name="token"
+                        value="{{ attempt.token }}"
+                    >
+
+                    <button
+                        class="demo-button"
+                        name="outcome"
+                        value="success"
+                        type="submit"
+                    >
+                        Thử thanh toán thành công
+                    </button>
+
+                    <button
+                        class="demo-button demo-secondary"
+                        name="outcome"
+                        value="failed"
+                        type="submit"
+                    >
+                        Thử thanh toán thất bại
+                    </button>
+
+                    <button
+                        class="demo-button demo-secondary"
+                        name="outcome"
+                        value="expired"
+                        type="submit"
+                    >
+                        Thử hết hạn
+                    </button>
+                </form>
+
+            {% else %}
+                <p class="demo-step">
+                    KẾT QUẢ MÔ PHỎNG
+                </p>
+
+                <h1>{{ result_title }}</h1>
+
+                <p>
+                    Phương thức:
+                    <strong>
+                        {{ attempt.method_label }}
+                    </strong>
+                </p>
+
+                <p>
+                    Số tiền mô phỏng:
+                    <strong>
+                        {{ attempt.amount|floatformat:"0g" }} ₫
+                    </strong>
+                </p>
+
+                <p class="demo-note">
+                    Đây không phải biên nhận thanh toán thật.
+                    Đơn đặt phòng và doanh thu thực tế
+                    không thay đổi.
+                </p>
+            {% endif %}
+
+            {% if attempt %}
+                <form method="post">
+                    {% csrf_token %}
+
+                    <input
+                        type="hidden"
+                        name="action"
+                        value="reset"
+                    >
+
+                    <button
+                        class="demo-link"
+                        type="submit"
+                    >
+                        ← Chọn lại phương thức / Tạo lượt thử mới
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+
+        <aside class="demo-panel demo-summary">
+            <h2>Thông tin đặt phòng</h2>
+
+            <h3>{{ booking.room_type.name }}</h3>
+
+            <p class="demo-code">
+                Mã:
+                {{ booking.display_code|default:booking.reference_code }}
+            </p>
+
+            <dl>
+                <div>
+                    <dt>Nhận phòng</dt>
+                    <dd>
+                        {{ booking.check_in|date:"d/m/Y" }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Trả phòng</dt>
+                    <dd>
+                        {{ booking.check_out|date:"d/m/Y" }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Số đêm</dt>
+                    <dd>{{ nights }}</dd>
+                </div>
+
+                <div>
+                    <dt>Số khách</dt>
+                    <dd>{{ booking.guest_count }}</dd>
+                </div>
+            </dl>
+
+            <div class="demo-price-row">
+                <span>Tiền phòng</span>
+
+                <strong>
+                    {{ booking.total_price|floatformat:"0g" }} ₫
+                </strong>
+            </div>
+
+            <p class="demo-muted">
+                Chưa bao gồm dịch vụ phát sinh
+                trong thời gian lưu trú.
+            </p>
+
+            <p class="demo-note">
+                Chế độ thử nghiệm không giữ phòng,
+                không xác nhận đơn và không cộng doanh thu.
+            </p>
+
+            <a href="{% url 'accounts:bookings' %}">
+                Quay về đặt phòng của tôi
+            </a>
+        </aside>
+    </div>
+</section>
+
+<script>
+    (() => {
+        const timer = document.getElementById("demo-countdown");
+
+        if (!timer) return;
+
+        const deadline =
+            Date.now() + Number(timer.dataset.seconds) * 1000;
+
+        function tick() {
+            const left = Math.max(
+                0,
+                Math.ceil((deadline - Date.now()) / 1000)
+            );
+
+            const minutes = Math.floor(left / 60);
+            const seconds = String(left % 60).padStart(2, "0");
+
+            timer.textContent = `${minutes}:${seconds}`;
+
+            if (left === 0) {
+                window.location.reload();
+                return;
+            }
+
+            window.setTimeout(tick, 1000);
+        }
+
+        tick();
+    })();
+</script>
+{% endblock %}

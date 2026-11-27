@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import views, demo_payments
 
 app_name = "website"
 
@@ -27,5 +27,10 @@ urlpatterns = [
         "thanh-toan/momo/ipn/",
         views.momo_ipn,
         name="momo_ipn",
+    ),
+        path(
+        "thanh-toan/demo/<int:pk>/",
+        demo_payments.payment_demo,
+        name="payment_demo",
     ),
 ]

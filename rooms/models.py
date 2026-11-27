@@ -3,7 +3,7 @@ from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import F, Q
-
+from django.utils.text import slugify
 
 class RoomType(models.Model):
     class Tier(models.TextChoices):
@@ -185,6 +185,8 @@ class BookingRequest(models.Model):
         FAILED = "failed", "Thanh toán thất bại"
         AT_HOTEL = "at_hotel", "Thanh toán tại khách sạn"
 
+    
+
     room_type = models.ForeignKey(
         RoomType,
         on_delete=models.PROTECT,
@@ -297,6 +299,26 @@ class BookingRequest(models.Model):
                 name="booking_guest_count_positive",
             ),
         ]
+
+    @property
+    def display_code(self):
+        if not self.pk:
+            return "Chưa tạo mã"
+
+        normalized_name = slugify(
+            self.room_type.name.replace("đ", "d").replace("Đ", "D")
+        )
+
+        words = normalized_name.split("-")
+        prefix = "".join(
+            word[0].upper()
+            for word in words
+            if word
+        )
+
+        prefix = prefix or "PH"
+
+        return f"{prefix}{self.pk:06d}"
 
     def __str__(self):
         return f"{self.guest_name} - {self.room_type} ({self.check_in})"

@@ -5,6 +5,9 @@ from django.http import Http404, HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils import timezone
+from .room_map import build_room_map
+from .allocation import find_available_room
+import re
 
 from .operations import (
     check_in_booking,
@@ -163,6 +166,36 @@ class RoomAdmin(admin.ModelAdmin):
     list_select_related = ("room_type",)
     actions = ("mark_cleaning_finished",)
 
+    change_list_template = "admin/rooms/room/change_list.html"
+
+    def get_urls(self):
+        custom_urls = [
+            path(
+                "so-do/",
+                self.admin_site.admin_view(self.room_map_view),
+                name="rooms_room_map",
+            ),
+        ]
+
+        return custom_urls + super().get_urls()
+
+    def room_map_view(self, request):
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+
+        context = {
+            **self.admin_site.each_context(request),
+            **build_room_map(),
+            "title": "Sơ đồ phòng hôm nay",
+            "opts": self.model._meta,
+        }
+
+        return TemplateResponse(
+            request,
+            "admin/rooms/room/room_map.html",
+            context,
+        )
+
 
 
     @admin.action(
@@ -202,6 +235,27 @@ class ServiceAdmin(admin.ModelAdmin):
 
 @admin.register(BookingRequest)
 class BookingRequestAdmin(admin.ModelAdmin):
+    def get_search_results(self, request, queryset, search_term):
+        code = search_term.strip().upper()
+        match = re.fullmatch(r"([A-Z]+)([0-9]{1,18})", code)
+
+        if match:
+            booking_id = int(match.group(2))
+
+            candidates = queryset.filter(
+                pk=booking_id
+            ).select_related("room_type")
+
+            booking = candidates.first()
+
+            if booking and booking.display_code == code:
+                return candidates, False
+
+        return super().get_search_results(
+            request,
+            queryset,
+            search_term,
+        )
     class BookingRequestAdminForm(forms.ModelForm):
         class Meta:
             model = BookingRequest
@@ -303,6 +357,30 @@ class BookingRequestAdmin(admin.ModelAdmin):
                     )
 
 
+            if (
+                not self.errors
+                and not cleaned_data.get("assigned_room")
+                and room_type
+                and check_in
+                and check_out
+                and check_out > check_in
+                and status == BookingRequest.Status.CONFIRMED
+            ):
+                room = find_available_room(
+                    room_type,
+                    check_in,
+                    check_out,
+                    booking_id=self.instance.pk,
+                )
+
+                if room is None:
+                    self.add_error(
+                        None,
+                        "Không tìm được phòng trống suốt kỳ lưu trú. "
+                        "Vui lòng kiểm tra lại lịch hoặc chọn loại khác.",
+                    )
+                else:
+                    cleaned_data["assigned_room"] = room
 
             assigned_room = cleaned_data.get("assigned_room")
 
@@ -381,12 +459,13 @@ class BookingRequestAdmin(admin.ModelAdmin):
                     )
 
             return cleaned_data
+        
 
     form = BookingRequestAdminForm
     inlines = (BookingServiceUsageInline,)
     change_list_template = "admin/rooms/bookingrequest/change_list.html"
     list_display = (
-        "reference_code",
+        "booking_label",
         "guest_name",
         "phone",
         "room_type",
@@ -419,6 +498,7 @@ class BookingRequestAdmin(admin.ModelAdmin):
         "channel",
         "actual_check_in",
         "actual_check_out",
+        "booking_label",
     )
     date_hierarchy = "check_in"
     ordering = ("check_in", "room_type")
@@ -458,7 +538,7 @@ class BookingRequestAdmin(admin.ModelAdmin):
                 "fields": (
                     "nightly_rate",
                     "total_price",
-                    "reference_code",
+                    "booking_label",
                     "created_at",
                 )
             },
@@ -695,6 +775,11 @@ class BookingRequestAdmin(admin.ModelAdmin):
                     f"Tổng tiền dự kiến: {obj.total_price:,.0f} VNĐ."
                 ),
             )
+
+
+    @admin.display(description="Mã đặt phòng", ordering="pk")
+    def booking_label(self, obj):
+        return obj.display_code
 
     def save_formset(self, request, form, formset, change):
         if formset.model is BookingServiceUsage and any(
