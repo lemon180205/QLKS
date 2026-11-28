@@ -389,9 +389,8 @@ class CustomerAccountTests(TestCase):
         response = self.client.get(reverse("accounts:bookings"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, str(own_booking.reference_code))
-        self.assertNotContains(response, str(other_booking.reference_code))
-
+        self.assertContains(response, own_booking.display_code)
+        self.assertNotContains(response, other_booking.display_code)
     @override_settings(
         EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
     )

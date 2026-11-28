@@ -18,6 +18,10 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+)
 
 admin.site.site_header = "An Nhiên Hotel | Quản trị"
 admin.site.site_title = "Quản trị An Nhiên Hotel"
@@ -28,6 +32,18 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("tai-khoan/", include("accounts.urls")),
     path("", include("website.urls")),
+    path("api/auth/", include("accounts.api_urls")),
+    path("api/", include("rooms.api_urls")),
+    path(
+        "api/auth/token/",
+        TokenObtainPairView.as_view(),
+        name="token_obtain_pair",
+    ),
+    path(
+        "api/auth/token/refresh/",
+        TokenRefreshView.as_view(),
+        name="token_refresh",
+    ),
 ]
 
 if settings.DEBUG:

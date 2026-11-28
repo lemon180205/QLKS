@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "accounts",
     "rooms",
     "website",
+    "rest_framework",
 ]
 
 MIDDLEWARE = [
@@ -191,3 +192,14 @@ if not DEBUG:
         "DJANGO_SECURE_SSL_REDIRECT",
         "true",
     ).strip().lower() in {"1", "true", "yes"}
+
+
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+}
